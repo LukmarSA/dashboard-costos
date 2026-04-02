@@ -8,8 +8,8 @@ const APP_CONFIG = {
   empresa: 'LUKMAR S.A.',
   version: '1.0.0-sprint1',
   supabase: {
-    url: 'https://TU_PROJECT_ID.supabase.co',       // <-- reemplazar
-    anonKey: 'TU_ANON_KEY',                          // <-- reemplazar
+    url: 'https://xupjkihkbvqtzmtrkfff.supabase.co',
+    anonKey: 'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Inh1cGpraWhrYnZxdHptdHJrZmZmIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzUxNDczMDgsImV4cCI6MjA5MDcyMzMwOH0.oBAu8R7n_Az9Pw0ShJABRzZ4bV9i5BQX2TWE-9RIbFo',
   },
 };
 
