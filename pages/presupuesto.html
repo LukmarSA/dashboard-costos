@@ -1,0 +1,316 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Presupuesto de Indicadores · LUKMAR S.A.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/main.css">
+<style>
+  .pres-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:1rem; margin-bottom:1.5rem; }
+  .pres-card {
+    background:var(--blanco); border:1px solid var(--gris-1);
+    border-radius:var(--r-lg); padding:1rem 1.25rem;
+    border-left:4px solid var(--gris-2);
+  }
+  .pres-header { display:flex; align-items:center; gap:10px; margin-bottom:0.875rem; }
+  .pres-dot { width:10px; height:10px; border-radius:50%; flex-shrink:0; }
+  .pres-nombre { font-size:13px; font-weight:700; color:var(--azul-oscuro); flex:1; }
+  .pres-unidad { font-size:10px; font-weight:600; color:var(--gris-3); background:var(--gris-1); padding:2px 8px; border-radius:99px; }
+  .pres-row { display:flex; align-items:center; gap:10px; margin-bottom:0.5rem; }
+  .pres-label { font-size:11px; color:var(--gris-3); width:100px; flex-shrink:0; }
+  .pres-input-wrap { flex:1; position:relative; }
+  .pres-input-wrap span { position:absolute; left:10px; top:50%; transform:translateY(-50%); font-size:13px; color:var(--gris-3); font-weight:500; }
+  .pres-input {
+    width:100%; padding:7px 10px 7px 22px;
+    border:1.5px solid var(--gris-1); border-radius:var(--r);
+    font-family:'Montserrat',sans-serif; font-size:13px; font-weight:600;
+    color:var(--azul-oscuro); outline:none; text-align:right;
+  }
+  .pres-input:focus { border-color:var(--azul-claro); }
+  .pres-actual { font-size:12px; font-weight:600; width:90px; text-align:right; flex-shrink:0; }
+  .pres-semaforo { width:8px; height:8px; border-radius:50%; flex-shrink:0; }
+  .sem-verde   { background:var(--verde); }
+  .sem-amarillo{ background:var(--amarillo); }
+  .sem-rojo    { background:var(--rojo); }
+  .sem-gris    { background:var(--gris-2); }
+  .periodo-selector { display:flex; gap:8px; align-items:center; margin-bottom:1.25rem; flex-wrap:wrap; }
+  .periodo-selector label { font-size:12px; font-weight:600; color:var(--gris-3); }
+  .periodo-selector select, .periodo-selector input {
+    padding:7px 12px; border:1.5px solid var(--gris-1); border-radius:var(--r);
+    font-family:'Montserrat',sans-serif; font-size:12px; color:var(--azul-oscuro); outline:none; background:white;
+  }
+  .resumen-total {
+    background:var(--azul-oscuro); border-radius:var(--r-lg);
+    padding:1rem 1.5rem; display:flex; align-items:center; justify-content:space-between;
+    margin-bottom:1.25rem;
+  }
+  .resumen-total-label { font-size:12px; font-weight:600; color:rgba(255,255,255,0.6); }
+  .resumen-total-val   { font-size:1.4rem; font-weight:700; color:white; }
+  .resumen-total-sub   { font-size:11px; color:rgba(255,255,255,0.5); margin-top:2px; }
+  .legend-row { display:flex; gap:1rem; align-items:center; font-size:11px; color:var(--gris-3); }
+  .legend-dot { width:8px; height:8px; border-radius:50%; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-mount"></div>
+  <main class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Presupuesto de indicadores</div>
+        <div class="topbar-sub">Configure el presupuesto por grupo · LUKMAR S.A.</div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn" onclick="cargarPresupuesto()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 2 4.5"/><path d="M2 4v4h4"/></svg>
+          Actualizar
+        </button>
+        <button class="btn btn-primary" onclick="guardarTodo()">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg>
+          Guardar presupuesto
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Selector período -->
+      <div class="periodo-selector">
+        <label>Año:</label>
+        <select id="sel-anio">
+          <option value="2025">2025</option>
+          <option value="2026" selected>2026</option>
+          <option value="2027">2027</option>
+        </select>
+        <label>Período:</label>
+        <select id="sel-periodo">
+          <option value="anual">Anual</option>
+          <option value="Q1">Q1 (Ene-Mar)</option>
+          <option value="Q2">Q2 (Abr-Jun)</option>
+          <option value="Q3">Q3 (Jul-Sep)</option>
+          <option value="Q4">Q4 (Oct-Dic)</option>
+        </select>
+        <div class="legend-row">
+          <div class="legend-dot sem-verde"></div><span>≤ presupuesto</span>
+          <div class="legend-dot sem-amarillo"></div><span>≤ 110%</span>
+          <div class="legend-dot sem-rojo"></div><span>> 110%</span>
+          <div class="legend-dot sem-gris"></div><span>Sin real</span>
+        </div>
+      </div>
+
+      <!-- Resumen totales -->
+      <div class="resumen-total">
+        <div>
+          <div class="resumen-total-label">Total presupuestado</div>
+          <div class="resumen-total-val" id="total-pres">—</div>
+          <div class="resumen-total-sub">Suma de todos los grupos</div>
+        </div>
+        <div style="text-align:right">
+          <div class="resumen-total-label">Total real (período)</div>
+          <div class="resumen-total-val" id="total-real">—</div>
+          <div class="resumen-total-sub" id="total-variacion">—</div>
+        </div>
+      </div>
+
+      <!-- Tarjetas por grupo -->
+      <div class="pres-grid" id="pres-grid">
+        <div style="grid-column:1/-1;text-align:center;padding:2rem;color:var(--gris-3)">Cargando…</div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
+<script>
+const _sb = getSupabaseClient();
+
+const GRUPOS_CONFIG = [
+  { grupo:'Larva',                       unidad:'$/Millar',  color:'#7EC8E3' },
+  { grupo:'Juveniles',                   unidad:'$/Millar',  color:'#29ABE2' },
+  { grupo:'Balanceado',                  unidad:'$/Kg',      color:'#1E6FBF' },
+  { grupo:'Insumos Quimicos',            unidad:'$/Has/Día', color:'#F47920' },
+  { grupo:'Personal',                    unidad:'$/Has/Día', color:'#27AE60' },
+  { grupo:'Operativo',                   unidad:'$/Has/Día', color:'#2ECC71' },
+  { grupo:'Mantenimiento',               unidad:'$/Has/Día', color:'#F39C12' },
+  { grupo:'Depreciación',                unidad:'$/Has/Día', color:'#E74C3C' },
+  { grupo:'Otros Costos',                unidad:'$/Has/Día', color:'#95A5A6' },
+  { grupo:'Distribución de Indirectos',  unidad:'$/Has/Día', color:'#7F8C8D' },
+  { grupo:'Gastos',                      unidad:'$/Has/Día', color:'#9B59B6' },
+];
+
+let _presupuesto = {};   // grupo -> { id, presupuesto_valor, presupuesto_hd }
+let _realesGrupo = {};   // grupo -> valor real
+
+(async () => {
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('presupuesto');
+  await Promise.all([cargarPresupuesto(), cargarReales()]);
+  renderTarjetas();
+})();
+
+async function cargarPresupuesto() {
+  const emp = sessionStorage.getItem('dcp_empresa');
+  const anio = document.getElementById('sel-anio').value;
+  const periodo = document.getElementById('sel-periodo').value;
+
+  const { data } = await _sb.from('presupuesto_grupos')
+    .select('*')
+    .eq('empresa_id', emp)
+    .eq('anio', anio)
+    .eq('periodo', periodo);
+
+  _presupuesto = {};
+  (data || []).forEach(p => { _presupuesto[p.grupo] = p; });
+}
+
+async function cargarReales() {
+  const emp = sessionStorage.getItem('dcp_empresa');
+
+  // Obtener fecha más reciente de costos
+  const { data: uf } = await _sb.from('costos_piscina')
+    .select('fecha_reporte').eq('empresa_id', emp)
+    .order('fecha_reporte', { ascending: false }).limit(1).single();
+  if (!uf) return;
+
+  // Cargar costos en lotes
+  let todos = [];
+  let desde = 0;
+  while (true) {
+    const { data: lote } = await _sb.from('costos_piscina')
+      .select('grupo, valor')
+      .eq('empresa_id', emp)
+      .eq('fecha_reporte', uf.fecha_reporte)
+      .range(desde, desde + 999);
+    if (!lote || lote.length === 0) break;
+    todos = todos.concat(lote);
+    if (lote.length < 1000) break;
+    desde += 1000;
+  }
+
+  _realesGrupo = {};
+  todos.forEach(c => {
+    const g = c.grupo || 'SINASIGNACIÓN';
+    _realesGrupo[g] = (_realesGrupo[g] || 0) + c.valor;
+  });
+}
+
+function renderTarjetas() {
+  let totalPres = 0, totalReal = 0;
+
+  const html = GRUPOS_CONFIG.map(({ grupo, unidad, color }) => {
+    const p = _presupuesto[grupo] || {};
+    const presMonto = p.presupuesto_monto || 0;
+    const presHD    = p.presupuesto_hd    || 0;
+    const real      = _realesGrupo[grupo] || 0;
+    totalPres += presMonto;
+    totalReal += real;
+
+    const pct = presMonto > 0 ? (real / presMonto * 100) : 0;
+    let semCls = 'sem-gris';
+    if (real > 0 && presMonto > 0) {
+      semCls = pct <= 100 ? 'sem-verde' : pct <= 110 ? 'sem-amarillo' : 'sem-rojo';
+    }
+
+    return `<div class="pres-card" style="border-left-color:${color}">
+      <div class="pres-header">
+        <div class="pres-dot" style="background:${color}"></div>
+        <div class="pres-nombre">${grupo}</div>
+        <span class="pres-unidad">${unidad}</span>
+        <div class="pres-semaforo ${semCls}" title="${pct > 0 ? pct.toFixed(1)+'% del presupuesto' : 'Sin datos reales'}"></div>
+      </div>
+      <div class="pres-row">
+        <div class="pres-label">Presupuesto $</div>
+        <div class="pres-input-wrap">
+          <span>$</span>
+          <input type="number" class="pres-input" id="inp-monto-${grupo.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'')}"
+            value="${presMonto > 0 ? presMonto.toFixed(2) : ''}"
+            placeholder="0.00" step="0.01" min="0"
+            oninput="actualizarTotal()">
+        </div>
+        <div class="pres-actual" style="color:${real>0?'var(--azul-oscuro)':'var(--gris-2)'}">
+          ${real > 0 ? '$' + F.num(real, 0) : '—'}
+        </div>
+      </div>
+      <div class="pres-row">
+        <div class="pres-label">Pres. ${unidad}</div>
+        <div class="pres-input-wrap">
+          <span>$</span>
+          <input type="number" class="pres-input" id="inp-hd-${grupo.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'')}"
+            value="${presHD > 0 ? presHD.toFixed(4) : ''}"
+            placeholder="0.0000" step="0.0001" min="0">
+        </div>
+        <div class="pres-actual" style="font-size:11px;color:var(--gris-3)">
+          ${pct > 0 ? pct.toFixed(1) + '%' : '—'}
+        </div>
+      </div>
+    </div>`;
+  }).join('');
+
+  document.getElementById('pres-grid').innerHTML = html;
+
+  const variacion = totalPres > 0 ? ((totalReal/totalPres - 1)*100).toFixed(1) : null;
+  document.getElementById('total-pres').textContent = totalPres > 0 ? '$' + F.num(totalPres, 2) : '—';
+  document.getElementById('total-real').textContent = totalReal > 0 ? '$' + F.num(totalReal, 2) : '—';
+  document.getElementById('total-variacion').textContent = variacion
+    ? (variacion > 0 ? '+' : '') + variacion + '% vs presupuesto'
+    : 'Sin presupuesto configurado';
+}
+
+function actualizarTotal() {
+  let total = 0;
+  GRUPOS_CONFIG.forEach(({ grupo }) => {
+    const gid = grupo.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    const val = parseFloat(document.getElementById('inp-monto-' + gid)?.value) || 0;
+    total += val;
+  });
+  document.getElementById('total-pres').textContent = total > 0 ? '$' + F.num(total, 2) : '—';
+}
+
+async function guardarTodo() {
+  const emp    = sessionStorage.getItem('dcp_empresa');
+  const uid    = (await _sb.auth.getUser()).data?.user?.id;
+  const anio   = parseInt(document.getElementById('sel-anio').value);
+  const periodo = document.getElementById('sel-periodo').value;
+
+  const registros = GRUPOS_CONFIG.map(({ grupo }) => {
+    const gid   = grupo.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    const monto = parseFloat(document.getElementById('inp-monto-' + gid)?.value) || 0;
+    const hd    = parseFloat(document.getElementById('inp-hd-' + gid)?.value) || 0;
+    return {
+      empresa_id:         emp,
+      grupo,
+      anio,
+      periodo,
+      presupuesto_monto:  monto,
+      presupuesto_hd:     hd,
+      actualizado_por:    uid,
+      actualizado_en:     new Date().toISOString(),
+    };
+  });
+
+  const { error } = await _sb.from('presupuesto_grupos')
+    .upsert(registros, { onConflict: 'empresa_id,grupo,anio,periodo' });
+
+  if (error) { toast('Error: ' + error.message, 'error'); return; }
+  toast('Presupuesto guardado correctamente.', 'success');
+  await cargarPresupuesto();
+  renderTarjetas();
+}
+
+document.getElementById('sel-anio').addEventListener('change', async () => {
+  await cargarPresupuesto();
+  renderTarjetas();
+});
+document.getElementById('sel-periodo').addEventListener('change', async () => {
+  await cargarPresupuesto();
+  renderTarjetas();
+});
+</script>
+</body>
+</html>
