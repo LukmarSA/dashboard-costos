@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Resumen General · Dashboard Costos LUKMAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/main.css">
+</head>
+<body>
+
+<div class="layout">
+  <div id="sidebar-mount"></div>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Resumen general</div>
+        <div class="topbar-sub" id="topbar-sub">Cargando datos…</div>
+      </div>
+      <div class="topbar-right">
+        <span style="font-size:11px;color:var(--gris-3)" id="ultima-actualizacion"></span>
+        <a class="btn btn-primary" href="importar_siembra.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M8 10V3M5 6l3-3 3 3"/><path d="M2 12h12v2H2z"/></svg>
+          Importar siembra
+        </a>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- KPIs principales -->
+      <div class="kpi-grid" id="kpi-row">
+        <div class="kpi-card c-azul">
+          <div class="kpi-label">Piscinas activas</div>
+          <div class="kpi-val" id="kpi-activas">—</div>
+          <div class="kpi-sub">En proceso hoy</div>
+        </div>
+        <div class="kpi-card c-verde">
+          <div class="kpi-label">Total Has activas</div>
+          <div class="kpi-val" id="kpi-has">—</div>
+          <div class="kpi-sub">Hectáreas en cultivo</div>
+        </div>
+        <div class="kpi-card c-naranja">
+          <div class="kpi-label">Total larvas</div>
+          <div class="kpi-val" id="kpi-larvas">—</div>
+          <div class="kpi-sub">Millones sembradas</div>
+        </div>
+        <div class="kpi-card c-amarillo">
+          <div class="kpi-label">Kg balanceado</div>
+          <div class="kpi-val" id="kpi-bal">—</div>
+          <div class="kpi-sub">Total acumulado</div>
+        </div>
+      </div>
+
+      <!-- Tipo de piscina + semáforo cosecha -->
+      <div class="kpi-grid kpi-grid-3" style="margin-bottom:1.5rem">
+        <div class="kpi-card c-azul">
+          <div class="kpi-label">Engorde</div>
+          <div class="kpi-val" id="kpi-engorde">—</div>
+          <div class="kpi-sub">piscinas con corrida -E-</div>
+        </div>
+        <div class="kpi-card c-naranja">
+          <div class="kpi-label">Precrías</div>
+          <div class="kpi-val" id="kpi-precria">—</div>
+          <div class="kpi-sub">piscinas con corrida -PC-</div>
+        </div>
+        <div class="kpi-card c-rojo">
+          <div class="kpi-label">Próx. cosecha (+60 días)</div>
+          <div class="kpi-val" id="kpi-rojo">—</div>
+          <div class="kpi-sub">piscinas en engorde</div>
+        </div>
+      </div>
+
+      <!-- Tabla piscinas -->
+      <div class="tabla-card">
+        <div class="tabla-header">
+          <div>
+            <div class="tabla-title">Piscinas en proceso</div>
+            <div class="tabla-sub" id="tabla-sub">Última carga del reporte de siembra</div>
+          </div>
+          <div style="display:flex;gap:8px;align-items:center">
+            <input type="text" id="filtro-buscar" placeholder="Buscar piscina…"
+              style="padding:6px 10px;border:1.5px solid var(--gris-1);border-radius:var(--r);font-family:'Montserrat',sans-serif;font-size:12px;outline:none;width:180px"
+              oninput="filtrarTabla()">
+            <select id="filtro-semaforo" onchange="filtrarTabla()"
+              style="padding:6px 10px;border:1.5px solid var(--gris-1);border-radius:var(--r);font-family:'Montserrat',sans-serif;font-size:12px;outline:none;background:white">
+              <option value="">Todas las etapas</option>
+              <option value="verde">Etapa inicial</option>
+              <option value="amarillo">Etapa media</option>
+              <option value="rojo">Próx. cosecha</option>
+            </select>
+          </div>
+        </div>
+        <div style="overflow-x:auto">
+          <table>
+            <thead>
+              <tr>
+                <th>Piscina</th>
+                <th>Corrida</th>
+                <th class="right">Has</th>
+                <th class="right">Días</th>
+                <th class="right">Larvas</th>
+                <th class="right">Kg Balanceado</th>
+                <th>Etapa</th>
+                <th>F. Siembra</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-body">
+              <tr><td colspan="8" class="empty-state"><p>Cargando datos…</p></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Aviso sin datos -->
+      <div id="aviso-sin-datos" style="display:none">
+        <div class="panel" style="margin-top:1rem">
+          <div class="panel-body" style="text-align:center;padding:2.5rem">
+            <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="var(--gris-2)" stroke-width="1.5" style="margin:0 auto 1rem;display:block"><path d="M12 2v4M12 18v4M4.93 4.93l2.83 2.83M16.24 16.24l2.83 2.83M2 12h4M18 12h4M4.93 19.07l2.83-2.83M16.24 7.76l2.83-2.83"/></svg>
+            <div style="font-size:14px;font-weight:600;color:var(--azul-oscuro);margin-bottom:0.5rem">Sin datos cargados</div>
+            <div style="font-size:13px;color:var(--gris-3);margin-bottom:1.25rem">Importe el reporte de siembra de ACOSUX para ver las piscinas en proceso.</div>
+            <a class="btn btn-primary" href="importar_siembra.html">Importar reporte de siembra</a>
+          </div>
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
+<script>
+const _sb = getSupabaseClient();
+let _datos = [];
+
+(async () => {
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('dashboard');
+  await cargarDashboard();
+})();
+
+async function cargarDashboard() {
+  const empresaId = sessionStorage.getItem('dcp_empresa');
+
+  // Obtener la última fecha de reporte cargada
+  const { data: ultimaFecha } = await _sb
+    .from('siembra_diaria')
+    .select('fecha_reporte')
+    .eq('empresa_id', empresaId)
+    .order('fecha_reporte', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!ultimaFecha) {
+    document.getElementById('aviso-sin-datos').style.display = 'block';
+    document.querySelector('.tabla-card').style.display = 'none';
+    document.getElementById('topbar-sub').textContent = 'Sin datos importados aún';
+    return;
+  }
+
+  const fecha = ultimaFecha.fecha_reporte;
+  document.getElementById('ultima-actualizacion').textContent = 'Reporte: ' + F.date(fecha);
+  document.getElementById('topbar-sub').textContent = 'LUKMAR S.A. · ' + F.date(fecha);
+  document.getElementById('tabla-sub').textContent  = 'Reporte de siembra · ' + F.date(fecha);
+
+  // Cargar piscinas incluidas con datos de siembra de esa fecha
+  const { data, error } = await _sb
+    .from('siembra_diaria')
+    .select(`
+      *,
+      piscinas!inner(codigo, nombre, incluida, sector),
+      corridas(codigo_corrida, fecha_siembra)
+    `)
+    .eq('empresa_id', empresaId)
+    .eq('fecha_reporte', fecha)
+    .eq('piscinas.incluida', true)
+    .order('dias_totales', { ascending: false });
+
+  if (error) { toast('Error cargando datos: ' + error.message, 'error'); return; }
+
+  _datos = data || [];
+
+  if (_datos.length === 0) {
+    document.getElementById('aviso-sin-datos').style.display = 'block';
+    document.querySelector('.tabla-card').style.display = 'none';
+    return;
+  }
+
+  actualizarKPIs();
+  renderTabla(_datos);
+}
+
+function actualizarKPIs() {
+  const totalHas    = _datos.reduce((a, r) => a + (r.has || 0), 0);
+  const totalLarvas = _datos.reduce((a, r) => a + (r.larvas_totales || 0), 0);
+  const totalBal    = _datos.reduce((a, r) => a + (r.balanceado_kg || 0), 0);
+
+  document.getElementById('kpi-activas').textContent  = _datos.length;
+  document.getElementById('kpi-has').textContent      = totalHas.toFixed(1);
+  document.getElementById('kpi-larvas').textContent   = (totalLarvas / 1e6).toFixed(1) + 'M';
+  document.getElementById('kpi-bal').textContent      = F.num(totalBal, 0) + ' kg';
+
+  // Tipo por corrida
+  const engorde = _datos.filter(r => {
+    const cor = r.corridas?.codigo_corrida || '';
+    return cor.includes('-E-');
+  }).length;
+  const precria = _datos.filter(r => {
+    const cor = r.corridas?.codigo_corrida || '';
+    return cor.includes('-PC-');
+  }).length;
+  // Próx cosecha: solo engorde con más de 60 días
+  const proxCosecha = _datos.filter(r => {
+    const cor = r.corridas?.codigo_corrida || '';
+    return cor.includes('-E-') && (r.dias_totales||0) > 60;
+  }).length;
+
+  document.getElementById('kpi-engorde').textContent = engorde;
+  document.getElementById('kpi-precria').textContent = precria;
+  document.getElementById('kpi-rojo').textContent    = proxCosecha;
+}
+
+function renderTabla(lista) {
+  const tbody = document.getElementById('tabla-body');
+  if (!lista.length) {
+    tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:var(--gris-3)">No hay piscinas que coincidan.</td></tr>`;
+    return;
+  }
+  tbody.innerHTML = lista.map(r => {
+    const sem = semaforoDias(r.dias_totales || 0);
+    const cod = r.piscinas?.codigo || '—';
+    const corrida = r.corridas?.codigo_corrida || '—';
+    return `<tr>
+      <td class="mono">${cod}</td>
+      <td style="font-size:12px;color:var(--gris-3)">${corrida}</td>
+      <td class="right">${F.has(r.has)}</td>
+      <td class="right">${r.dias_totales ?? '—'}</td>
+      <td class="right">${r.larvas_totales ? (r.larvas_totales/1e6).toFixed(2)+'M' : '—'}</td>
+      <td class="right">${F.num(r.balanceado_kg, 0)} kg</td>
+      <td><span class="badge ${sem.clase}" title="${sem.title}"><span class="badge-dot"></span>${sem.label}</span></td>
+      <td style="font-size:12px;color:var(--gris-3)">${F.date(r.corridas?.fecha_siembra)}</td>
+    </tr>`;
+  }).join('');
+}
+
+function filtrarTabla() {
+  const texto = document.getElementById('filtro-buscar').value.toLowerCase();
+  const sem   = document.getElementById('filtro-semaforo').value;
+  const lista = _datos.filter(r => {
+    const cod = (r.piscinas?.codigo || '').toLowerCase();
+    const matchTexto = !texto || cod.includes(texto);
+    const dias = r.dias_totales || 0;
+    const matchSem = !sem
+      || (sem === 'verde'    && dias <= 30)
+      || (sem === 'amarillo' && dias > 30 && dias <= 60)
+      || (sem === 'rojo'     && dias > 60);
+    return matchTexto && matchSem;
+  });
+  renderTabla(lista);
+}
+</script>
+</body>
+</html>
