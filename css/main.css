@@ -365,3 +365,18 @@ td.mono  { font-family: monospace; font-weight: 700; font-size: 13px; }
 .progress-bar  { height: 100%; border-radius: 99px; background: var(--azul-claro); transition: width 0.3s; }
 .progress-bar.success { background: var(--verde); }
 .progress-bar.error   { background: var(--rojo); }
+
+/* ============================================================
+   ORDENAMIENTO DE TABLA
+   ============================================================ */
+thead th.sortable {
+  cursor: pointer;
+  user-select: none;
+  white-space: nowrap;
+}
+thead th.sortable:hover { color: var(--azul-claro); background: #EBF5FC; }
+.sort-icon { font-size: 10px; color: var(--gris-2); margin-left: 4px; }
+thead th.sortable:hover .sort-icon { color: var(--azul-claro); }
+
+/* Badge naranja para precría */
+.badge-naranja { background: #FEF0EC; color: #8B3A0F; }
