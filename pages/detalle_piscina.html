@@ -1,0 +1,465 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Detalle Piscina · LUKMAR S.A.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<style>
+  .ficha-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.875rem; margin-bottom:1.25rem; }
+  .ficha-card { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:1rem 1.25rem; }
+  .ficha-label { font-size:10px; font-weight:700; color:var(--gris-3); text-transform:uppercase; letter-spacing:0.07em; margin-bottom:6px; }
+  .ficha-val   { font-size:1.4rem; font-weight:700; color:var(--azul-oscuro); line-height:1; }
+  .ficha-sub   { font-size:10px; color:var(--gris-3); margin-top:4px; }
+
+  .kpi-costos { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.875rem; margin-bottom:1.25rem; }
+  .kpi-costo-card { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:0.875rem 1rem; border-left:3px solid var(--gris-1); }
+  .kpi-costo-card.c-azul    { border-left-color:var(--azul-claro); }
+  .kpi-costo-card.c-verde   { border-left-color:var(--verde); }
+  .kpi-costo-card.c-naranja { border-left-color:var(--naranja); }
+  .kpi-costo-card.c-morado  { border-left-color:#7F77DD; }
+  .kpi-costo-label { font-size:10px; font-weight:700; color:var(--gris-3); text-transform:uppercase; letter-spacing:0.06em; margin-bottom:5px; }
+  .kpi-costo-val   { font-size:1.3rem; font-weight:700; color:var(--azul-oscuro); }
+  .kpi-costo-sub   { font-size:10px; color:var(--gris-3); margin-top:3px; }
+
+  .two-col-det { display:grid; grid-template-columns:1fr 300px; gap:1.25rem; margin-bottom:1.25rem; }
+
+  /* Tabla de grupos expandible */
+  .grupo-row { cursor:pointer; transition:background 0.1s; }
+  .grupo-row:hover { background:#F5F8FC; }
+  .grupo-row td { font-weight:600; font-size:13px; }
+  .grupo-chevron { transition:transform 0.2s; display:inline-block; margin-right:6px; color:var(--gris-3); }
+  .grupo-chevron.open { transform:rotate(90deg); }
+  .prod-row { background:#FAFBFD; }
+  .prod-row td { font-size:12px; color:var(--gris-3); padding-top:5px !important; padding-bottom:5px !important; }
+  .prod-row td:first-child { padding-left:2.5rem !important; }
+  .prod-row.hidden { display:none; }
+
+  .barra-wrap { background:var(--gris-1); border-radius:99px; height:5px; margin-top:4px; }
+  .barra      { height:5px; border-radius:99px; }
+
+  .breadcrumb { display:flex; align-items:center; gap:6px; font-size:12px; color:var(--gris-3); margin-bottom:0.75rem; }
+  .breadcrumb a { color:var(--azul-claro); text-decoration:none; }
+  .breadcrumb a:hover { text-decoration:underline; }
+
+  @keyframes spin { to { transform:rotate(360deg); } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-mount"></div>
+  <main class="main">
+
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title" id="topbar-title">Detalle piscina</div>
+        <div class="topbar-sub" id="topbar-sub">Cargando…</div>
+      </div>
+      <div class="topbar-right">
+        <a class="btn" href="dashboard.html">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M10 12L6 8l4-4"/></svg>
+          Volver al dashboard
+        </a>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <!-- Breadcrumb -->
+      <div class="breadcrumb">
+        <a href="dashboard.html">Dashboard</a>
+        <span>›</span>
+        <span id="bc-piscina">—</span>
+      </div>
+
+      <!-- Ficha operativa -->
+      <div class="ficha-grid" id="ficha-operativa">
+        <div class="ficha-card"><div class="ficha-label">Piscina</div><div class="ficha-val" id="f-codigo">—</div><div class="ficha-sub" id="f-corrida">—</div></div>
+        <div class="ficha-card"><div class="ficha-label">Hectáreas</div><div class="ficha-val" id="f-has">—</div><div class="ficha-sub">en cultivo</div></div>
+        <div class="ficha-card"><div class="ficha-label">Días de cultivo</div><div class="ficha-val" id="f-dias">—</div><div class="ficha-sub" id="f-dias-sub">—</div></div>
+        <div class="ficha-card"><div class="ficha-label">Larvas sembradas</div><div class="ficha-val" id="f-larvas">—</div><div class="ficha-sub">unidades</div></div>
+      </div>
+
+      <div class="ficha-grid" style="grid-template-columns:repeat(3,1fr)">
+        <div class="ficha-card"><div class="ficha-label">Kg balanceado</div><div class="ficha-val" id="f-bal">—</div><div class="ficha-sub">consumido</div></div>
+        <div class="ficha-card"><div class="ficha-label">Fecha siembra</div><div class="ficha-val" style="font-size:1rem;padding-top:4px" id="f-siembra">—</div><div class="ficha-sub">inicio de cultivo</div></div>
+        <div class="ficha-card"><div class="ficha-label">Tipo</div><div class="ficha-val" style="font-size:1rem;padding-top:4px" id="f-tipo">—</div><div class="ficha-sub" id="f-etapa">—</div></div>
+      </div>
+
+      <!-- KPIs de costo -->
+      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem">
+        <div class="kpi-costo-card c-azul"><div class="kpi-costo-label">Costo total</div><div class="kpi-costo-val" id="kc-total">—</div><div class="kpi-costo-sub">acumulado corrida</div></div>
+        <div class="kpi-costo-card c-verde"><div class="kpi-costo-label">$/Has/Día</div><div class="kpi-costo-val" id="kc-hd">—</div><div class="kpi-costo-sub">costo diario por Ha</div></div>
+        <div class="kpi-costo-card c-naranja"><div class="kpi-costo-label">$/Millar larva</div><div class="kpi-costo-val" id="kc-millar">—</div><div class="kpi-costo-sub">costo por millar</div></div>
+        <div class="kpi-costo-card c-morado"><div class="kpi-costo-label">$/Kg balanceado</div><div class="kpi-costo-val" id="kc-kg">—</div><div class="kpi-costo-sub">eficiencia alimentaria</div></div>
+      </div>
+
+      <!-- Tabla + gráfico -->
+      <div class="two-col-det" style="margin-top:1.25rem">
+
+        <!-- Tabla costos por grupo expandible -->
+        <div class="tabla-card">
+          <div class="tabla-header">
+            <div><div class="tabla-title">Costos por grupo</div><div class="tabla-sub" id="tabla-sub-costos">Clic en grupo para ver productos</div></div>
+            <div id="lbl-sin-costos" style="font-size:12px;color:var(--naranja);display:none">Sin costos importados</div>
+          </div>
+          <div style="overflow-x:auto;max-height:520px;overflow-y:auto">
+            <table>
+              <thead style="position:sticky;top:0">
+                <tr>
+                  <th>Grupo / Producto</th>
+                  <th class="right">Costo $</th>
+                  <th class="right">% Total</th>
+                  <th class="right">$/Has/Día</th>
+                </tr>
+              </thead>
+              <tbody id="tabla-costos-body">
+                <tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--gris-3)">Cargando costos…</td></tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        <!-- Gráfico torta -->
+        <div style="display:flex;flex-direction:column;gap:1.25rem">
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><div class="panel-title">Distribución</div></div>
+            <div class="panel-body">
+              <div style="position:relative;height:200px"><canvas id="chart-det"></canvas></div>
+              <div id="det-legend" style="margin-top:0.75rem;display:flex;flex-direction:column;gap:5px"></div>
+            </div>
+          </div>
+
+          <!-- Indirectos -->
+          <div class="panel" style="margin:0">
+            <div class="panel-header"><div class="panel-title">Indirectos $/Has/Día</div></div>
+            <div class="panel-body" id="indirectos-body">
+              <div style="font-size:12px;color:var(--gris-3)">Cargando…</div>
+            </div>
+          </div>
+        </div>
+
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
+<script>
+const _sb = getSupabaseClient();
+let _chartDet = null;
+
+const GRUPOS_FIJOS = [
+  { grupo:'Larva',                       unidad:'$/Millar',  color:'#7EC8E3' },
+  { grupo:'Juveniles',                   unidad:'$/Millar',  color:'#29ABE2' },
+  { grupo:'Balanceado',                  unidad:'$/Kg',      color:'#1E6FBF' },
+  { grupo:'Insumos Quimicos',            unidad:'$/Has/Día', color:'#F47920' },
+  { grupo:'Personal',                    unidad:'$/Has/Día', color:'#27AE60' },
+  { grupo:'Operativo',                   unidad:'$/Has/Día', color:'#2ECC71' },
+  { grupo:'Mantenimiento',               unidad:'$/Has/Día', color:'#F39C12' },
+  { grupo:'Depreciación',                unidad:'$/Has/Día', color:'#E74C3C' },
+  { grupo:'Otros Costos',                unidad:'$/Has/Día', color:'#95A5A6' },
+  { grupo:'Distribución de Indirectos',  unidad:'$/Has/Día', color:'#7F8C8D' },
+  { grupo:'Gastos',                      unidad:'$/Has/Día', color:'#9B59B6' },
+];
+
+const COLORES_GRUPO = {};
+GRUPOS_FIJOS.forEach(g => { COLORES_GRUPO[g.grupo] = g.color; });
+COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
+COLORES_GRUPO['Distribución de Indirectos'] = '#7F8C8D';
+
+const GRUPOS_INDIRECTOS = ['Personal','Operativo','Mantenimiento','Depreciación','Otros Costos','Distribución de Indirectos','Gastos'];
+
+(async () => {
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('');
+
+  // Leer datos de navegación desde sessionStorage
+  const raw = sessionStorage.getItem('det_nav');
+  if (!raw) { window.location.href = 'dashboard.html'; return; }
+
+  let payload;
+  try { payload = JSON.parse(raw); } catch(e) { window.location.href = 'dashboard.html'; return; }
+
+  // Verificar expiración — válido 30 minutos
+  if (!payload.ts || Date.now() - payload.ts > 30 * 60 * 1000) {
+    sessionStorage.removeItem('det_nav');
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  const piscinaId     = payload.piscina_id || '';
+  const codigoCorrida = payload.corrida    || '';
+  const codigo        = payload.codigo     || '';
+
+  if (!piscinaId || !codigoCorrida) {
+    window.location.href = 'dashboard.html';
+    return;
+  }
+
+  document.getElementById('topbar-title').textContent = 'Detalle · ' + codigo;
+  document.getElementById('bc-piscina').textContent   = codigo + ' · ' + codigoCorrida;
+  document.getElementById('f-codigo').textContent     = codigo;
+  document.getElementById('f-corrida').textContent    = codigoCorrida;
+
+  await Promise.all([
+    cargarSiembra(piscinaId, codigoCorrida),
+    cargarCostos(codigoCorrida),
+  ]);
+})();
+
+async function cargarSiembra(piscinaId, codigoCorrida) {
+  const emp = sessionStorage.getItem('dcp_empresa');
+
+  const { data: uf } = await _sb.from('siembra_diaria')
+    .select('fecha_reporte').eq('empresa_id', emp)
+    .order('fecha_reporte', { ascending: false }).limit(1).single();
+
+  if (!uf) return;
+
+  const { data: s } = await _sb.from('siembra_diaria')
+    .select('*, corridas(codigo_corrida, fecha_siembra)')
+    .eq('piscina_id', piscinaId)
+    .eq('fecha_reporte', uf.fecha_reporte)
+    .single();
+
+  if (!s) return;
+
+  const esPrecria = codigoCorrida.includes('-PC-');
+  const dias = s.dias_totales || 0;
+  const sem  = semaforoDias(esPrecria ? 0 : dias);
+
+  document.getElementById('topbar-sub').textContent  = 'Reporte ' + F.date(uf.fecha_reporte);
+  document.getElementById('f-has').textContent       = (s.has||0).toFixed(2) + ' Has';
+  document.getElementById('f-dias').textContent      = dias;
+  document.getElementById('f-dias-sub').textContent  = 'Edad ' + (s.edad_dias||0) + ' + secos ' + (s.dias_secos||0);
+  document.getElementById('f-larvas').textContent    = s.larvas_totales ? (s.larvas_totales/1e6).toFixed(3) + 'M' : '—';
+  document.getElementById('f-bal').textContent       = s.balanceado_kg ? F.num(s.balanceado_kg, 0) + ' kg' : '—';
+  document.getElementById('f-siembra').textContent   = F.date(s.corridas?.fecha_siembra);
+  document.getElementById('f-tipo').textContent      = esPrecria ? 'Precría' : 'Engorde';
+  document.getElementById('f-etapa').textContent     = esPrecria ? '—' : sem.label;
+}
+
+async function cargarCostos(codigoCorrida) {
+  // Resolver corridaId desde Supabase usando codigo_corrida
+  const { data: cor } = await _sb.from('corridas')
+    .select('id')
+    .eq('codigo_corrida', codigoCorrida)
+    .single();
+
+  if (!cor?.id) {
+    document.getElementById('tabla-costos-body').innerHTML =
+      `<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--gris-3)">
+        Corrida "${codigoCorrida}" no encontrada.
+      </td></tr>`;
+    document.getElementById('kc-total').textContent = '—';
+    document.getElementById('indirectos-body').innerHTML = '<div style="font-size:12px;color:var(--gris-3)">Sin datos</div>';
+    return;
+  }
+
+  const corridaIdFinal = cor.id;
+
+  // Buscar fecha más reciente de costos
+  const { data: ufc } = await _sb.from('costos_piscina')
+    .select('fecha_reporte')
+    .eq('corrida_id', corridaIdFinal)
+    .order('fecha_reporte', { ascending: false })
+    .limit(1)
+    .single();
+
+  if (!ufc) {
+    document.getElementById('tabla-costos-body').innerHTML =
+      `<tr><td colspan="4" style="padding:2rem;text-align:center;color:var(--gris-3)">
+        Sin costos importados para la corrida ${codigoCorrida}.
+      </td></tr>`;
+    document.getElementById('lbl-sin-costos').style.display = 'block';
+    document.getElementById('kc-total').textContent = '$0.00';
+    document.getElementById('indirectos-body').innerHTML = '<div style="font-size:12px;color:var(--gris-3)">Sin datos</div>';
+    return;
+  }
+
+  // Cargar todos los costos de esta corrida usando el ID correcto
+  let costos = [];
+  let desde = 0;
+  const LOTE = 1000;
+  while (true) {
+    const { data: lote } = await _sb.from('costos_piscina')
+      .select('producto_codigo, grupo, subgrupo, valor, productos(nombre)')
+      .eq('corrida_id', corridaIdFinal)
+      .eq('fecha_reporte', ufc.fecha_reporte)
+      .order('valor', { ascending: false })
+      .range(desde, desde + LOTE - 1);
+    if (!lote || lote.length === 0) break;
+    costos = costos.concat(lote);
+    if (lote.length < LOTE) break;
+    desde += LOTE;
+  }
+
+  document.getElementById('tabla-sub-costos').textContent = 'Reporte ' + F.date(ufc.fecha_reporte) + ' · ' + (costos||[]).length + ' productos';
+
+  // Agrupar por grupo
+  const porGrupo = {};
+  (costos || []).forEach(c => {
+    const g = c.grupo || 'SINASIGNACIÓN';
+    if (!porGrupo[g]) porGrupo[g] = { total: 0, prods: [] };
+    porGrupo[g].total += c.valor;
+    porGrupo[g].prods.push(c);
+  });
+
+  const totalCosto = Object.values(porGrupo).reduce((a,g) => a + g.total, 0);
+
+  // Siembra para calcular ratios
+  const piscinaId = sessionStorage.getItem('det_piscina_id');
+  const emp = sessionStorage.getItem('dcp_empresa');
+  const { data: uf2 } = await _sb.from('siembra_diaria')
+    .select('fecha_reporte').eq('empresa_id', emp)
+    .order('fecha_reporte', { ascending: false }).limit(1).single();
+  const { data: s } = await _sb.from('siembra_diaria')
+    .select('has, dias_totales, larvas_totales, balanceado_kg')
+    .eq('piscina_id', piscinaId)
+    .eq('fecha_reporte', uf2?.fecha_reporte).single();
+
+  const has   = s?.has   || 1;
+  const dias  = s?.dias_totales || 1;
+  const larvas = s?.larvas_totales || 0;
+  const balKg  = s?.balanceado_kg || 0;
+  const hd = totalCosto / has / dias;
+
+  // KPIs de costo
+  document.getElementById('kc-total').textContent  = '$' + F.num(totalCosto, 2);
+  document.getElementById('kc-hd').textContent     = '$' + hd.toFixed(2);
+  document.getElementById('kc-millar').textContent = larvas > 0 ? '$' + (totalCosto / (larvas/1000)).toFixed(2) : '—';
+  document.getElementById('kc-kg').textContent     = balKg > 0  ? '$' + (totalCosto / balKg).toFixed(2) : '—';
+
+  // Tabla grupos: siempre mostrar los 11 fijos + extras si existen
+  const gruposExtras = Object.keys(porGrupo).filter(g => 
+    g !== 'SINASIGNACIÓN' && !GRUPOS_FIJOS.find(f => f.grupo === g) && (porGrupo[g]?.total || 0) > 0
+  );
+  const grupos = [...GRUPOS_FIJOS.map(f => f.grupo), ...gruposExtras];
+
+  let html = '';
+  grupos.forEach(g => {
+    const data = (porGrupo[g] && typeof porGrupo[g] === 'object') 
+      ? porGrupo[g] 
+      : { total: 0, prods: [] };
+    const fijoInfo = GRUPOS_FIJOS.find(f => f.grupo === g);
+    const unidad = fijoInfo?.unidad || '$/Has/Día';
+    const color  = COLORES_GRUPO[g] || '#888780';
+    const gid    = g.replace(/\s+/g,'_').replace(/[^a-zA-Z0-9_]/g,'');
+    const pct    = totalCosto > 0 && data.total > 0 ? (data.total/totalCosto*100).toFixed(1) : '0.0';
+    const sinDatos = data.total === 0;
+
+    // Calcular valor según unidad
+    let displayHD = '—';
+    if (!sinDatos) {
+      if (unidad === '$/Millar')  displayHD = larvas > 0 ? '$'+(data.total/(larvas/1000)).toFixed(4) : '—';
+      else if (unidad === '$/Kg') displayHD = balKg  > 0 ? '$'+(data.total/balKg).toFixed(2) : '—';
+      else                        displayHD = '$'+(data.total/has/dias).toFixed(2);
+    }
+
+    html += `<tr class="grupo-row" onclick="toggleGrupo('${gid}')" style="${sinDatos?'opacity:0.45':''}">
+      <td style="color:var(--azul-oscuro)">
+        <span class="grupo-chevron" id="chev-${gid}">›</span>
+        <span style="display:inline-block;width:8px;height:8px;border-radius:2px;background:${color};margin-right:6px;vertical-align:middle"></span>
+        ${g}
+        <span style="font-size:10px;color:var(--gris-3);font-weight:400;margin-left:6px">${sinDatos?'sin costos':'('+data.prods.length+' productos)'}</span>
+      </td>
+      <td class="right">${sinDatos?'<span style="color:var(--gris-2)">$0.00</span>':'$'+F.num(data.total,2)}</td>
+      <td class="right">
+        <span style="font-weight:600">${pct}%</span>
+        ${sinDatos?'':' <div class="barra-wrap"><div class="barra" style="width:'+pct+'%;background:'+color+'"></div></div>'}
+      </td>
+      <td class="right" style="font-size:10px;color:var(--gris-3)">${unidad}<br><span style="font-size:12px;color:var(--azul-oscuro);font-weight:600">${displayHD}</span></td>
+    </tr>`;
+
+    // Filas de productos (ocultas por defecto)
+    data.prods.sort((a,b) => b.valor - a.valor).forEach(p => {
+      const pct2 = data.total > 0 ? (p.valor/data.total*100).toFixed(1) : 0;
+      html += `<tr class="prod-row hidden" data-grupo="${gid}">
+        <td>${p.productos?.nombre || p.producto_codigo}</td>
+        <td class="right">$${F.num(p.valor,2)}</td>
+        <td class="right">${pct2}%</td>
+        <td class="right">$${(p.valor/has/dias).toFixed(2)}</td>
+      </tr>`;
+    });
+  });
+
+  document.getElementById('tabla-costos-body').innerHTML = html;
+
+  // Gráfico
+  renderGraficoDet(grupos.map(g => ({
+    label: g, valor: porGrupo[g].total, color: COLORES_GRUPO[g] || '#888'
+  })), totalCosto);
+
+  // Indirectos
+  renderIndirectos(porGrupo, has, dias, totalCosto);
+}
+
+function toggleGrupo(gid) {
+  const chev  = document.getElementById('chev-' + gid);
+  const filas = document.querySelectorAll(`[data-grupo="${gid}"]`);
+  const abierto = chev.classList.contains('open');
+  chev.classList.toggle('open', !abierto);
+  filas.forEach(f => f.classList.toggle('hidden', abierto));
+}
+
+function renderGraficoDet(grupos, total) {
+  if (_chartDet) _chartDet.destroy();
+  const top = grupos.filter(g => g.valor > 0).sort((a,b) => b.valor-a.valor).slice(0,8);
+  _chartDet = new Chart(document.getElementById('chart-det'), {
+    type: 'doughnut',
+    data: {
+      labels: top.map(g => g.label),
+      datasets: [{ data: top.map(g => g.valor), backgroundColor: top.map(g => g.color), borderWidth: 2, borderColor: '#fff' }]
+    },
+    options: {
+      responsive: true, maintainAspectRatio: false,
+      plugins: { legend: { display: false }, tooltip: {
+        callbacks: { label: ctx => ' $' + F.num(ctx.raw,2) + ' (' + (ctx.raw/total*100).toFixed(1) + '%)' }
+      }}
+    }
+  });
+
+  document.getElementById('det-legend').innerHTML = top.map(g => `
+    <div style="display:flex;align-items:center;gap:6px;font-size:11px">
+      <div style="width:8px;height:8px;border-radius:2px;background:${g.color};flex-shrink:0"></div>
+      <span style="color:var(--gris-3);flex:1;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${g.label}</span>
+      <span style="font-weight:600;color:var(--azul-oscuro);font-size:11px">$${(g.valor/1000).toFixed(1)}K</span>
+    </div>`).join('');
+}
+
+function renderIndirectos(porGrupo, has, dias, total) {
+  const totalInd = GRUPOS_INDIRECTOS.reduce((a,g) => a + (porGrupo[g]?.total||0), 0);
+  const hdInd = has > 0 && dias > 0 ? totalInd/has/dias : 0;
+
+  let html = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem">
+    <span style="font-size:13px;font-weight:700;color:var(--azul-oscuro)">Total indirectos</span>
+    <span style="font-size:14px;font-weight:700;color:#534AB7">$${hdInd.toFixed(2)}/Has/Día</span>
+  </div>`;
+
+  GRUPOS_INDIRECTOS.forEach(g => {
+    const val = porGrupo[g]?.total || 0;
+    const hd  = has > 0 && dias > 0 ? val/has/dias : 0;
+    const pct = totalInd > 0 ? (val/totalInd*100) : 0;
+    html += `<div style="margin-bottom:8px">
+      <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
+        <span style="color:var(--gris-3)">${g}</span>
+        <span style="font-weight:600;color:var(--azul-oscuro)">$${hd.toFixed(2)}</span>
+      </div>
+      <div class="barra-wrap">
+        <div class="barra" style="width:${Math.min(pct,100).toFixed(1)}%;background:${COLORES_GRUPO[g]||'#888'}"></div>
+      </div>
+    </div>`;
+  });
+
+  document.getElementById('indirectos-body').innerHTML = html;
+}
+</script>
+</body>
+</html>
