@@ -1,0 +1,606 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Importar Costos · Dashboard Costos LUKMAR</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/main.css">
+<style>
+  .step-row { display:flex; gap:0.5rem; margin-bottom:1.5rem; }
+  .step-pill {
+    display:flex; align-items:center; gap:8px;
+    padding:6px 14px; border-radius:99px;
+    font-size:11px; font-weight:600;
+    background:var(--gris-1); color:var(--gris-3);
+    border:1.5px solid var(--gris-1);
+  }
+  .step-pill.active { background:#EBF5FC; color:var(--azul-claro); border-color:var(--azul-claro); }
+  .step-pill.done   { background:var(--verde-l); color:var(--verde); border-color:var(--verde); }
+  .step-num { width:18px; height:18px; border-radius:50%; background:currentColor; color:white;
+    display:flex; align-items:center; justify-content:center; font-size:10px; font-weight:700; flex-shrink:0; }
+  .step-pill.active .step-num { background:var(--azul-claro); color:white; }
+  .step-pill.done   .step-num { background:var(--verde); color:white; }
+
+  .resumen-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.75rem; margin-bottom:1rem; }
+  .resumen-card { background:var(--fondo); border-radius:var(--r); padding:0.75rem 1rem; text-align:center; }
+  .resumen-num  { font-size:1.5rem; font-weight:700; color:var(--azul-oscuro); }
+  .resumen-label{ font-size:10px; color:var(--gris-3); text-transform:uppercase; letter-spacing:0.05em; margin-top:2px; }
+
+  .sin-asignar-badge {
+    background:#FEF0EC; color:#8B3A0F;
+    border:1.5px solid #F47920;
+    border-radius:var(--r); padding:0.75rem 1rem;
+    font-size:12px; line-height:1.5; margin-bottom:1rem;
+  }
+  .progress-label { font-size:12px; color:var(--gris-3); margin-bottom:4px; display:flex; justify-content:space-between; }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-mount"></div>
+
+  <main class="main">
+    <div class="topbar">
+      <div class="topbar-left">
+        <div class="topbar-title">Importar costos por piscina</div>
+        <div class="topbar-sub">Reporte ACOSUX: ListaCostosPiscinaMultiple_*.xlsx</div>
+      </div>
+      <div class="topbar-right">
+        <a class="btn" href="importaciones.html">Ver historial</a>
+        <a class="btn" href="clasificar_productos.html">Clasificar productos</a>
+      </div>
+    </div>
+
+    <div class="content" style="max-width:860px">
+
+      <!-- Steps -->
+      <div class="step-row" id="steps">
+        <div class="step-pill active" id="step1"><div class="step-num">1</div> Seleccionar archivo</div>
+        <div class="step-pill" id="step2"><div class="step-num">2</div> Vista previa</div>
+        <div class="step-pill" id="step3"><div class="step-num">3</div> Resultado</div>
+      </div>
+
+      <!-- Panel upload -->
+      <div class="panel" id="panel-upload">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Seleccionar reporte de costos</div>
+            <div class="panel-sub">Archivo Excel con hoja TODOCOMPU y hoja Códigos</div>
+          </div>
+        </div>
+        <div class="panel-body">
+          <div class="drop-zone" id="drop-zone" onclick="document.getElementById('file-input').click()">
+            <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
+              <path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/>
+              <polyline points="17 8 12 3 7 8"/>
+              <line x1="12" y1="3" x2="12" y2="15"/>
+            </svg>
+            <p><strong>Clic para seleccionar</strong> o arrastre el archivo aquí</p>
+            <p style="font-size:11px;margin-top:6px">Formato: .xlsx · Hojas requeridas: TODOCOMPU, Códigos</p>
+          </div>
+          <input type="file" id="file-input" accept=".xlsx" style="display:none">
+
+          <div id="archivo-info" style="display:none;margin-top:1rem">
+            <div style="display:flex;align-items:center;gap:10px;padding:0.75rem 1rem;background:var(--fondo);border-radius:var(--r)">
+              <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="var(--verde)" stroke-width="2"><path d="M14 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V8z"/><polyline points="14 2 14 8 20 8"/></svg>
+              <span style="font-size:13px;font-weight:600;color:var(--azul-oscuro);flex:1" id="nombre-archivo">—</span>
+              <button class="btn" onclick="resetear()">Cambiar</button>
+            </div>
+            <div style="margin-top:0.75rem">
+              <div class="progress-label"><span id="prog-label">Procesando archivo…</span><span id="prog-pct">0%</span></div>
+              <div class="progress-wrap"><div class="progress-bar" id="prog-bar" style="width:0%"></div></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel preview -->
+      <div class="panel" id="panel-preview" style="display:none">
+        <div class="panel-header">
+          <div>
+            <div class="panel-title">Vista previa de la importación</div>
+            <div class="panel-sub" id="preview-sub">—</div>
+          </div>
+          <button class="btn btn-success" id="btn-importar" onclick="ejecutarImportacion()">
+            <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg>
+            Confirmar importación
+          </button>
+        </div>
+        <div class="panel-body">
+          <div class="resumen-grid" id="resumen-grid"></div>
+          <div class="sin-asignar-badge" id="aviso-sin-asignar" style="display:none"></div>
+
+          <!-- Fecha del reporte -->
+          <div style="display:flex;align-items:center;gap:1rem;margin-bottom:1rem">
+            <div>
+              <label style="display:block;font-size:10px;font-weight:700;color:var(--gris-3);letter-spacing:0.08em;text-transform:uppercase;margin-bottom:5px">Fecha del reporte</label>
+              <input type="date" id="fecha-reporte" style="padding:7px 12px;border:1.5px solid var(--gris-1);border-radius:var(--r);font-family:'Montserrat',sans-serif;font-size:13px;color:var(--azul-oscuro);outline:none">
+            </div>
+          </div>
+
+          <!-- Tabla muestra de costos -->
+          <div style="font-size:11px;font-weight:700;color:var(--gris-3);letter-spacing:0.06em;text-transform:uppercase;margin-bottom:0.5rem">Muestra de registros (primeros 20)</div>
+          <div style="overflow-x:auto;max-height:300px;overflow-y:auto;border:1px solid var(--gris-1);border-radius:var(--r)">
+            <table>
+              <thead style="position:sticky;top:0">
+                <tr>
+                  <th>Código</th>
+                  <th>Producto</th>
+                  <th>Grupo asignado</th>
+                  <th>Piscina</th>
+                  <th>Corrida</th>
+                  <th class="right">Valor $</th>
+                </tr>
+              </thead>
+              <tbody id="preview-body"></tbody>
+            </table>
+          </div>
+        </div>
+      </div>
+
+      <!-- Panel resultado -->
+      <div class="panel" id="panel-resultado" style="display:none">
+        <div class="panel-header"><div class="panel-title">Resultado de la importación</div></div>
+        <div class="panel-body" id="resultado-body"></div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
+<script>
+const _sb = getSupabaseClient();
+let _productosDB     = {};   // codigo -> {id, grupo, subgrupo, categoria}
+let _corridasDB      = {};   // codigo_corrida -> {id, piscina_id}
+let _piscinasDB      = {};   // codigo -> id
+let _registros       = [];   // filas a importar
+let _productosNuevos = [];
+let _archivoNombre   = '';
+let productosEnReporte = new Set();  // todos los códigos válidos del reporte
+
+(async () => {
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('importar_costos');
+  await cargarMaestros();
+  setupDrop();
+})();
+
+// ---- Cargar maestros desde Supabase ----------------------
+async function cargarMaestros() {
+  const emp = sessionStorage.getItem('dcp_empresa');
+
+  const [{ data: prods }, { data: cors }, { data: piscs }] = await Promise.all([
+    _sb.from('productos').select('codigo,grupo,subgrupo,categoria').eq('empresa_id', emp),
+    _sb.from('corridas').select('id,codigo_corrida,piscina_id').eq('estado','en_proceso'),
+    _sb.from('piscinas').select('id,codigo').eq('empresa_id', emp),
+  ]);
+
+  (prods  || []).forEach(p => { _productosDB[p.codigo] = p; });
+  (cors   || []).forEach(c => { _corridasDB[c.codigo_corrida] = c; });
+  (piscs  || []).forEach(p => { _piscinasDB[p.codigo] = p.id; });
+}
+
+// ---- Drag & Drop ------------------------------------------
+function setupDrop() {
+  const zone  = document.getElementById('drop-zone');
+  const input = document.getElementById('file-input');
+  zone.addEventListener('dragover', e => { e.preventDefault(); zone.classList.add('drag-over'); });
+  zone.addEventListener('dragleave', () => zone.classList.remove('drag-over'));
+  zone.addEventListener('drop', e => { e.preventDefault(); zone.classList.remove('drag-over'); if (e.dataTransfer.files[0]) procesarArchivo(e.dataTransfer.files[0]); });
+  input.addEventListener('change', () => { if (input.files[0]) procesarArchivo(input.files[0]); });
+}
+
+// ---- Procesar archivo Excel ------------------------------
+function procesarArchivo(file) {
+  _archivoNombre = file.name;
+  document.getElementById('nombre-archivo').textContent = file.name;
+  document.getElementById('drop-zone').style.display = 'none';
+  document.getElementById('archivo-info').style.display = 'block';
+
+  // Detectar fecha del nombre
+  const match = file.name.match(/(\d{2})-(\d{2})-(\d{4})/);
+  const fecha = match ? `${match[3]}-${match[2]}-${match[1]}` : new Date().toISOString().slice(0,10);
+
+  setProgress(10, 'Leyendo archivo…');
+
+  const reader = new FileReader();
+  reader.onload = async e => {
+    try {
+      setProgress(20, 'Procesando hojas…');
+      const wb = XLSX.read(e.target.result, { type: 'array' });
+
+      // ---- HOJA CÓDIGOS: opcional — solo en primera carga ----
+      const nombresHojas = Object.keys(wb.Sheets);
+      const nombreCod = nombresHojas.find(n =>
+        n.toLowerCase().normalize('NFD').replace(/[\u0300-\u036f]/g,'').includes('codigo')
+      );
+      const wsCod = nombreCod ? wb.Sheets[nombreCod] : null;
+
+      // Mapa de productos desde hoja Códigos (si existe)
+      const mapaProductos = {};
+      if (wsCod) {
+        const jsonCod = XLSX.utils.sheet_to_json(wsCod, { header: 1, defval: null });
+        const hdrCod  = jsonCod[3];
+        const iCodigo = hdrCod.indexOf('Código');
+        const iNombre = hdrCod.indexOf('Nombre');
+        const iMedida = hdrCod.indexOf('Medida');
+        const iCategAcosux = hdrCod.indexOf('Categoría');
+        const iTipo   = hdrCod.indexOf('Tipo');
+        const iCuenta = hdrCod.indexOf('Cuenta Contable ') !== -1 ? hdrCod.indexOf('Cuenta Contable ') : hdrCod.indexOf('Cuenta Buscar ');
+        const iGrupo  = hdrCod.lastIndexOf('Grupo');
+        const iSubg   = hdrCod.lastIndexOf('Subgrupo');
+        const iCat    = hdrCod.lastIndexOf('Categoria');
+        for (let i = 4; i < jsonCod.length; i++) {
+          const r = jsonCod[i];
+          if (!r || !r[iCodigo]) continue;
+          const codigo = String(r[iCodigo]).trim();
+          const grupoRaw = r[iGrupo];
+          const grupo = (!grupoRaw || grupoRaw === 0 || grupoRaw === '0') ? null : String(grupoRaw).trim();
+          mapaProductos[codigo] = {
+            codigo,
+            nombre:           String(r[iNombre] || '').trim(),
+            medida:           String(r[iMedida] || '').trim(),
+            categoria_acosux: String(r[iCategAcosux] || '').trim(),
+            tipo_acosux:      String(r[iTipo] || '').trim(),
+            cuenta_contable:  r[iCuenta] ? String(r[iCuenta]).trim() : null,
+            grupo,
+            subgrupo:  r[iSubg] && r[iSubg] !== 0 ? String(r[iSubg]).trim() : null,
+            categoria: r[iCat]  && r[iCat]  !== 0 ? String(r[iCat]).trim()  : null,
+          };
+        }
+        setProgress(35, 'Hoja Códigos procesada (' + Object.keys(mapaProductos).length + ' productos)…');
+      } else {
+        // Sin hoja Códigos — clasificación vendrá 100% de la DB
+        setProgress(35, 'Sin hoja Códigos — usando clasificación de base de datos…');
+      }
+
+      setProgress(40, 'Procesando costos por piscina…');
+
+      // ---- HOJA TODOCOMPU: requerida siempre ----
+      const nombreCos = nombresHojas.find(n =>
+        n.toLowerCase().replace(/\s/g,'').includes('todocompu') ||
+        n.toLowerCase().replace(/\s/g,'').includes('todo')
+      );
+      const wsCos = nombreCos ? wb.Sheets[nombreCos] : null;
+      if (!wsCos) throw new Error('No se encontró la hoja TODOCOMPU. Hojas disponibles: ' + nombresHojas.join(', '));
+      const jsonCos = XLSX.utils.sheet_to_json(wsCos, { header: 1, defval: null });
+
+      // Fila 6 (índice 5) = encabezados
+      const hdrCos = jsonCos[5];
+      const iProducto = 0; // columna A
+      const iCodProd  = 1; // columna B
+
+      // Identificar columnas de piscinas (formato: LKM | PISCINA | CORRIDA)
+      const colsPiscina = [];
+      hdrCos.forEach((h, idx) => {
+        if (h && String(h).includes('|') && !String(h).includes('TOTAL')) {
+          const partes = String(h).split('|').map(p => p.trim());
+          if (partes.length === 3) {
+            colsPiscina.push({ idx, sector: partes[0], piscina: partes[1], corrida: partes[2] });
+          }
+        }
+      });
+
+      setProgress(55, 'Construyendo registros…');
+
+      _registros         = [];
+      _productosNuevos   = [];
+      productosEnReporte = new Set();
+
+      // Productos a excluir explícitamente (no son costos reales)
+      const EXCLUIR_CODIGOS  = new Set(['999999']);        // HECTAREAS
+      const EXCLUIR_NOMBRES  = new Set(['TOTAL', 'TOTAL GENERAL', 'DIAS']);
+      // Producto especial sin código que debe importarse
+      const TRANSFERENCIA_NOMBRE = '--> COSTO de TRANSFERENCIA';
+      const TRANSFERENCIA = {
+        codigo:           '00017',
+        nombre:           'COSTO DE TRANSFERENCIA',
+        grupo:            'Juveniles',
+        subgrupo:         'Juveniles',
+        categoria:        'Costo Inicial Act. Biológico',
+        medida:           'SIN UNIDAD DE MEDIDA',
+        categoria_acosux: 'SALDOS INICIALES',
+        tipo_acosux:      'INVENTARIO / MATERIAL DIRECTO',
+      };
+
+      for (let i = 6; i < jsonCos.length; i++) {
+        const row = jsonCos[i];
+        if (!row) continue;
+
+        const nomProd = String(row[iProducto] || '').trim();
+        // Normalizar código: puede venir como número o string desde SheetJS
+        const codRaw  = row[iCodProd];
+        const codProd = codRaw != null && codRaw !== '' ? String(codRaw).trim() : null;
+
+        // Excepción: COSTO DE TRANSFERENCIA sin código → asignar código y clasificación fijos
+        const esTransferencia = nomProd === TRANSFERENCIA_NOMBRE;
+
+        if (!esTransferencia) {
+          // Ignorar filas sin código, con nombres reservados, o códigos excluidos
+          if (!codProd) continue;
+          if (EXCLUIR_NOMBRES.has(nomProd.toUpperCase())) continue;
+          if (EXCLUIR_CODIGOS.has(codProd)) continue;
+        }
+
+        const codigo = esTransferencia ? TRANSFERENCIA.codigo : codProd;
+        productosEnReporte.add(codigo);
+
+        // Obtener clasificación con prioridades
+        let clasificacion;
+        if (esTransferencia) {
+          clasificacion = {
+            grupo:    TRANSFERENCIA.grupo,
+            subgrupo: TRANSFERENCIA.subgrupo,
+            categoria:TRANSFERENCIA.categoria,
+          };
+        } else if (_productosDB[codigo] && _productosDB[codigo].grupo) {
+          clasificacion = {
+            grupo:    _productosDB[codigo].grupo,
+            subgrupo: _productosDB[codigo].subgrupo,
+            categoria:_productosDB[codigo].categoria,
+          };
+        } else if (mapaProductos[codigo] && mapaProductos[codigo].grupo) {
+          clasificacion = {
+            grupo:    mapaProductos[codigo].grupo,
+            subgrupo: mapaProductos[codigo].subgrupo,
+            categoria:mapaProductos[codigo].categoria,
+          };
+        } else {
+          clasificacion = { grupo: 'SINASIGNACIÓN', subgrupo: null, categoria: null };
+        }
+
+        // Nombre del producto (debe declararse antes de usarse)
+        const nombreProducto = esTransferencia
+          ? TRANSFERENCIA.nombre
+          : (mapaProductos[codigo]?.nombre || nomProd || '').toString().trim();
+
+        // Registrar en maestro de productos si es nuevo
+        if (!_productosDB[codigo]) {
+          const infoBase = esTransferencia
+            ? TRANSFERENCIA
+            : (mapaProductos[codigo] || { codigo, nombre: nombreProducto });
+          _productosNuevos.push({ codigo, ...infoBase, ...clasificacion });
+        }
+
+        // Una fila por piscina donde hay valor > 0
+        // (productos sin valor en ninguna piscina quedan solo en el maestro)
+
+        let tieneValor = false;
+        for (const col of colsPiscina) {
+          const val = row[col.idx];
+          if (!val || val === 0 || isNaN(Number(val))) continue;
+          tieneValor = true;
+          _registros.push({
+            producto_codigo: codigo,
+            producto_nombre: nombreProducto,
+            corrida_codigo:  col.corrida,
+            piscina_codigo:  col.piscina,
+            valor:           Number(val),
+            ...clasificacion,
+          });
+        }
+      }
+
+      setProgress(75, 'Preparando vista previa…');
+      document.getElementById('fecha-reporte').value = fecha;
+      mostrarPreview();
+      setProgress(100, 'Listo');
+
+    } catch(err) {
+      toast('Error procesando archivo: ' + err.message, 'error');
+      resetear();
+    }
+  };
+  reader.readAsArrayBuffer(file);
+}
+
+function setProgress(pct, label) {
+  document.getElementById('prog-bar').style.width = pct + '%';
+  document.getElementById('prog-pct').textContent = pct + '%';
+  document.getElementById('prog-label').textContent = label;
+  if (pct === 100) {
+    document.getElementById('prog-bar').classList.add('success');
+  }
+}
+
+// ---- Vista previa ----------------------------------------
+function mostrarPreview() {
+  document.getElementById('step1').className = 'step-pill done';
+  document.getElementById('step2').className = 'step-pill active';
+  document.getElementById('panel-preview').style.display = 'block';
+
+  const totalRegistros  = _registros.length;
+  const totalProductos  = productosEnReporte.size;  // TODOS los del reporte, con o sin valor
+  const totalPiscinas   = new Set(_registros.map(r => r.piscina_codigo)).size;
+  const sinAsignar      = _registros.filter(r => r.grupo === 'SINASIGNACIÓN').length;
+  const prodSinAsignar  = new Set(_registros.filter(r => r.grupo === 'SINASIGNACIÓN').map(r => r.producto_codigo)).size;
+  const totalValor      = _registros.reduce((a, r) => a + r.valor, 0);
+  const sinValor        = totalProductos - new Set(_registros.map(r => r.producto_codigo)).size;
+
+  const fuenteClasif = Object.keys(mapaProductos).length > 0
+    ? 'con hoja Códigos'
+    : 'clasificación desde base de datos';
+  document.getElementById('preview-sub').textContent =
+    `${totalRegistros.toLocaleString()} transacciones · ${totalProductos} productos únicos · ${totalPiscinas} piscinas · ${_productosNuevos.length} nuevos · ${fuenteClasif}` +
+    (sinValor > 0 ? ` · ${sinValor} sin costo en este período` : '');
+
+  document.getElementById('resumen-grid').innerHTML = `
+    <div class="resumen-card"><div class="resumen-num">${totalRegistros.toLocaleString()}</div><div class="resumen-label">Transacciones</div></div>
+    <div class="resumen-card"><div class="resumen-num">${totalProductos}</div><div class="resumen-label">Productos únicos</div></div>
+    <div class="resumen-card"><div class="resumen-num">${totalPiscinas}</div><div class="resumen-label">Piscinas</div></div>
+    <div class="resumen-card"><div class="resumen-num" style="font-size:1.2rem">$${(totalValor/1000).toFixed(0)}K</div><div class="resumen-label">Total costos</div></div>
+  `;
+
+  if (sinAsignar > 0) {
+    document.getElementById('aviso-sin-asignar').style.display = 'block';
+    document.getElementById('aviso-sin-asignar').innerHTML =
+      `<strong>Atención:</strong> ${prodSinAsignar} productos (${sinAsignar} transacciones) quedarán con grupo <strong>SINASIGNACIÓN</strong>. ` +
+      `El Contador de Costos podrá clasificarlos luego en la pantalla de productos.`;
+  }
+
+  // Muestra primeros 20 registros
+  const muestra = _registros.slice(0, 20);
+  document.getElementById('preview-body').innerHTML = muestra.map(r => `
+    <tr>
+      <td class="mono" style="font-size:11px">${r.producto_codigo}</td>
+      <td style="font-size:12px;max-width:220px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${r.producto_nombre}</td>
+      <td><span class="badge ${r.grupo === 'SINASIGNACIÓN' ? 'badge-rojo' : 'badge-azul'}" style="font-size:10px">${r.grupo}</span></td>
+      <td class="mono" style="font-size:12px">${r.piscina_codigo}</td>
+      <td style="font-size:11px;color:var(--gris-3)">${r.corrida_codigo}</td>
+      <td class="right">$${r.valor.toFixed(2)}</td>
+    </tr>`).join('');
+}
+
+// ---- Ejecutar importación --------------------------------
+async function ejecutarImportacion() {
+  const fechaReporte = document.getElementById('fecha-reporte').value;
+  if (!fechaReporte) { toast('Seleccione la fecha del reporte.', 'warning'); return; }
+
+  const btn = document.getElementById('btn-importar');
+  btn.disabled = true;
+  btn.innerHTML = `<div style="width:13px;height:13px;border:2px solid rgba(255,255,255,0.4);border-top-color:white;border-radius:50%;animation:spin 0.7s linear infinite;display:inline-block"></div> Importando…`;
+
+  const emp = sessionStorage.getItem('dcp_empresa');
+  const uid = (await _sb.auth.getUser()).data?.user?.id;
+
+  try {
+    // PASO 1: Upsert productos nuevos
+    if (_productosNuevos.length > 0) {
+      const upsertProds = _productosNuevos.map(p => ({
+        empresa_id:       emp,
+        codigo:           p.codigo,
+        nombre:           p.nombre || p.codigo,
+        medida:           p.medida || null,
+        categoria_acosux: p.categoria_acosux || null,
+        tipo_acosux:      p.tipo_acosux || null,
+        cuenta_contable:  p.cuenta_contable || null,
+        grupo:            p.grupo || 'SINASIGNACIÓN',
+        subgrupo:         p.subgrupo || null,
+        categoria:        p.categoria || null,
+        fuente:           'acosux',
+        ultima_importacion: new Date().toISOString(),
+      }));
+
+      const { error: eProds } = await _sb.from('productos')
+        .upsert(upsertProds, { onConflict: 'empresa_id,codigo' });
+      if (eProds) throw new Error('Error guardando productos: ' + eProds.message);
+    }
+
+    // Actualizar última importación de productos existentes
+    const codigos = [...new Set(_registros.map(r => r.producto_codigo))];
+    await _sb.from('productos')
+      .update({ ultima_importacion: new Date().toISOString() })
+      .eq('empresa_id', emp)
+      .in('codigo', codigos);
+
+    // PASO 2: Recargar corridas y piscinas
+    await cargarMaestros();
+
+    // PASO 3: Preparar registros de costos con IDs reales
+    const LOTE = 500;
+    let importados = 0, omitidos = 0;
+
+    const registrosConID = _registros
+      .map(r => {
+        const corrida = _corridasDB[r.corrida_codigo];
+        const piscina_id = _piscinasDB[r.piscina_codigo];
+        if (!corrida || !piscina_id) { omitidos++; return null; }
+        return {
+          empresa_id:      emp,
+          corrida_id:      corrida.id,
+          piscina_id,
+          producto_codigo: r.producto_codigo,
+          fecha_reporte:   fechaReporte,
+          valor:           r.valor,
+          grupo:           r.grupo,
+          subgrupo:        r.subgrupo || null,
+          categoria:       r.categoria || null,
+        };
+      })
+      .filter(Boolean);
+
+    // Upsert en lotes de 500
+    for (let i = 0; i < registrosConID.length; i += LOTE) {
+      const lote = registrosConID.slice(i, i + LOTE);
+      const { error } = await _sb.from('costos_piscina')
+        .upsert(lote, { onConflict: 'corrida_id,producto_codigo,fecha_reporte' });
+      if (error) throw new Error('Error guardando costos (lote ' + (i/LOTE+1) + '): ' + error.message);
+      importados += lote.length;
+    }
+
+    // PASO 4: Log
+    await _sb.from('importaciones_log').insert({
+      empresa_id:         emp,
+      tipo:               'costos',
+      nombre_archivo:     _archivoNombre,
+      fecha_reporte:      fechaReporte,
+      usuario_id:         uid,
+      registros_total:    _registros.length,
+      registros_ok:       importados,
+      registros_omitidos: omitidos,
+      estado:             omitidos > 0 ? 'parcial' : 'ok',
+    });
+
+    mostrarResultado(importados, omitidos, _productosNuevos.length, fechaReporte);
+
+  } catch(err) {
+    toast('Error: ' + err.message, 'error');
+    console.error(err);
+    btn.disabled = false;
+    btn.innerHTML = `<svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8l4 4 8-8"/></svg> Confirmar importación`;
+  }
+}
+
+function mostrarResultado(ok, omitidos, nuevos, fecha) {
+  document.getElementById('step2').className = 'step-pill done';
+  document.getElementById('step3').className = 'step-pill active';
+  document.getElementById('panel-preview').style.display = 'none';
+  document.getElementById('panel-resultado').style.display = 'block';
+
+  document.getElementById('resultado-body').innerHTML = `
+    <div style="display:grid;grid-template-columns:repeat(3,1fr);gap:0.75rem;margin-bottom:1.25rem">
+      <div style="background:var(--verde-l);border-radius:var(--r);padding:1rem;text-align:center">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--verde)">${ok.toLocaleString()}</div>
+        <div style="font-size:11px;color:var(--verde);font-weight:600;margin-top:4px">Transacciones importadas</div>
+      </div>
+      <div style="background:#E8EDF8;border-radius:var(--r);padding:1rem;text-align:center">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--azul-oscuro)">${nuevos}</div>
+        <div style="font-size:11px;color:var(--azul-oscuro);font-weight:600;margin-top:4px">Productos nuevos registrados</div>
+      </div>
+      <div style="background:var(--gris-1);border-radius:var(--r);padding:1rem;text-align:center">
+        <div style="font-size:1.8rem;font-weight:700;color:var(--gris-3)">${omitidos}</div>
+        <div style="font-size:11px;color:var(--gris-3);font-weight:600;margin-top:4px">Omitidos (sin corrida activa)</div>
+      </div>
+    </div>
+    <div style="font-size:13px;color:var(--gris-3);margin-bottom:1rem">
+      Reporte del <strong>${F.date(fecha)}</strong> cargado correctamente.
+      ${omitidos > 0 ? `Los ${omitidos} registros omitidos corresponden a piscinas sin corrida activa en el sistema.` : ''}
+    </div>
+    <div style="display:flex;gap:8px">
+      <a class="btn btn-primary" href="dashboard.html">Ver dashboard</a>
+      <a class="btn" href="clasificar_productos.html">Clasificar productos sin asignar</a>
+      <button class="btn" onclick="location.reload()">Importar otro archivo</button>
+    </div>`;
+
+  toast(`${ok.toLocaleString()} transacciones importadas correctamente.`, 'success');
+}
+
+function resetear() {
+  document.getElementById('drop-zone').style.display = 'block';
+  document.getElementById('archivo-info').style.display = 'none';
+  document.getElementById('panel-preview').style.display = 'none';
+  document.getElementById('file-input').value = '';
+  document.getElementById('prog-bar').style.width = '0%';
+  document.getElementById('prog-bar').classList.remove('success');
+  _registros = []; _productosNuevos = []; productosEnReporte = new Set();
+}
+</script>
+<style>@keyframes spin { to { transform: rotate(360deg); } }</style>
+</body>
+</html>
