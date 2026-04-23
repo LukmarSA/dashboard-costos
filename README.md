@@ -1,4 +1,4 @@
-# Dashboard Costos Piscinas — LUKMAR S.A.
+# Dashboard Costos Piscinas —  LUKMAR S.A.
 **Sprint 1 · Fundación del proyecto**
 
 ---
