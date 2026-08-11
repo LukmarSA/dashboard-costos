@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Dashboard Gerencial · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="../css/main.css?v=2026.08.11.1">
 <script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   .kpi-grid-6 { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
@@ -356,11 +357,11 @@
 </div>
 
 <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/config.js"></script>
-<script src="../js/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="../js/config.js?v=2026.08.11.1"></script>
+<script src="../js/shared.js?v=2026.08.11.1"></script>
 <script>
-const _sb = getSupabaseClient();
+let _sb;
 let _siembra = [];
 let _costosPorCorrida  = {};
 let _costosPorGrupo    = {};
@@ -394,8 +395,11 @@ GRUPOS_FIJOS.forEach(g => { COLORES_GRUPO[g.grupo] = g.color; });
 COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
 
 (async () => {
-  if (!await verificarSesion(_sb)) return;
-  renderSidebar('dashboard');
+  try {
+    await window.APP_BUILD_READY;
+    _sb = getSupabaseClient();
+    if (!await verificarSesion(_sb)) return;
+    renderSidebar('dashboard');
 
   // Restaurar filtros si se viene del detalle piscina
   const filtrosGuardados = sessionStorage.getItem('dash_filtros');
@@ -412,8 +416,36 @@ COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
     } catch(e) {}
     sessionStorage.removeItem('dash_filtros');
   }
-  await cargarDashboard();
+    await cargarDashboard();
+  } catch (error) {
+    mostrarErrorDashboard(error);
+  } finally {
+    const loading = document.getElementById('loading-tabla');
+    if (loading) loading.style.display = 'none';
+  }
 })();
+
+function errorSupabase(contexto, error) {
+  if (!error) return;
+  const detalle = [error.message, error.details, error.hint].filter(Boolean).join(' · ');
+  throw new Error(`${contexto}: ${detalle || error.code || 'error desconocido'}`);
+}
+
+function mostrarErrorDashboard(error) {
+  const mensaje = error?.message || String(error) || 'Error desconocido';
+  const topbar = document.getElementById('topbar-sub');
+  if (topbar) topbar.textContent = 'Error al cargar el dashboard: ' + mensaje;
+
+  const tbody = document.getElementById('tabla-body');
+  if (!tbody) return;
+  const tr = document.createElement('tr');
+  const td = document.createElement('td');
+  td.colSpan = tbody.closest('table')?.querySelectorAll('thead th').length || 10;
+  td.style.cssText = 'padding:2.5rem;text-align:center;color:var(--rojo);white-space:normal';
+  td.textContent = 'No se pudo cargar el dashboard. ' + mensaje;
+  tr.appendChild(td);
+  tbody.replaceChildren(tr);
+}
 
 // Llama un RPC que devuelve TABLE, paginando de a 1000 (PostgREST corta en 1000).
 // OJO: en RPC el header Range NO offsetea (.range() de supabase-js no sirve);
@@ -431,9 +463,20 @@ async function rpcPaginado(fn, params, orderCols) {
       headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
-    if (!resp.ok) { console.error('Error RPC', fn, resp.status, await resp.text()); break; }
-    const data = await resp.json();
-    if (!Array.isArray(data) || data.length === 0) break;
+    const responseBody = await resp.text();
+    if (!resp.ok) {
+      throw new Error(`RPC ${fn} falló (HTTP ${resp.status}): ${responseBody || resp.statusText}`);
+    }
+    let data;
+    try {
+      data = responseBody ? JSON.parse(responseBody) : [];
+    } catch (error) {
+      throw new Error(`RPC ${fn} devolvió una respuesta JSON inválida: ${responseBody}`);
+    }
+    if (!Array.isArray(data)) {
+      throw new Error(`RPC ${fn} devolvió un cuerpo inesperado: ${responseBody}`);
+    }
+    if (data.length === 0) break;
     todo = todo.concat(data);
     if (data.length < lim) break;
     offset += lim;
@@ -445,9 +488,10 @@ async function cargarDashboard() {
   const emp = sessionStorage.getItem('dcp_empresa');
 
   // Fecha más reciente de siembra
-  const { data: uf } = await _sb.from('siembra_diaria')
+  const { data: uf, error: ufError } = await _sb.from('siembra_diaria')
     .select('fecha_reporte').eq('empresa_id', emp)
-    .order('fecha_reporte', { ascending: false }).limit(1).single();
+    .order('fecha_reporte', { ascending: false }).limit(1).maybeSingle();
+  errorSupabase('siembra_diaria (fecha más reciente)', ufError);
 
   if (!uf) {
     document.getElementById('topbar-sub').textContent = 'Sin datos importados';
@@ -464,9 +508,10 @@ async function cargarDashboard() {
   document.getElementById('topbar-sub').textContent = 'LUKMAR S.A. · ' + F.date(fechaSiembra);
 
   // Fecha más reciente de costos
-  const { data: ufc } = await _sb.from('costos_piscina')
+  const { data: ufc, error: ufcError } = await _sb.from('costos_piscina')
     .select('fecha_reporte').eq('empresa_id', emp)
-    .order('fecha_reporte', { ascending: false }).limit(1).single();
+    .order('fecha_reporte', { ascending: false }).limit(1).maybeSingle();
+  errorSupabase('costos_piscina (fecha más reciente)', ufcError);
 
   _fechaCostos = ufc?.fecha_reporte;
   const fechaCostos = _fechaCostos;
@@ -482,12 +527,7 @@ async function cargarDashboard() {
     .eq('piscinas.incluida', true)
     .order('dias_totales', { ascending: false });
 
-  if (siembraErr) {
-    console.error('Error cargando siembra:', siembraErr.message);
-    document.getElementById('topbar-sub').textContent = 'Error cargando datos: ' + siembraErr.message;
-    document.getElementById('loading-tabla').style.display = 'none';
-    return;
-  }
+  errorSupabase('siembra_diaria (datos del dashboard)', siembraErr);
   _siembra = siembra || [];
 
   // Cargar costos agrupados por corrida y por grupo global
@@ -536,11 +576,12 @@ async function cargarDashboard() {
 
   // Cargar presupuesto vigente
   const anioActual = new Date().getFullYear();
-  const { data: pres } = await _sb.from('presupuesto_grupos')
+  const { data: pres, error: presError } = await _sb.from('presupuesto_grupos')
     .select('grupo, presupuesto_monto, presupuesto_hd')
     .eq('empresa_id', emp)
     .eq('anio', anioActual)
     .eq('periodo', 'anual');
+  errorSupabase('presupuesto_grupos (presupuesto vigente)', presError);
   _presupuestoDB = {};
   (pres || []).forEach(p => { _presupuestoDB[p.grupo] = p; });
 
@@ -1667,7 +1708,7 @@ function verDetalle(piscinaId, corridaId, codigo, corrida) {
     sembrada: _filtroSembrada,
     peso:     _filtroPeso,
   }));
-  window.location.href = 'detalle_piscina.html';
+  navigateWithBuild('detalle_piscina.html');
 }
 
 function ordenar(col) {

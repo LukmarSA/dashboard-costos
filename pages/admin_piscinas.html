@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Admin Piscinas · Dashboard Costos LUKMAR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
-<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="../css/main.css?v=2026.08.11.1">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
 <style>
   :root {
@@ -235,17 +236,19 @@
 
 <div class="toast" id="toast"></div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/config.js"></script>
-<script src="../js/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="../js/config.js?v=2026.08.11.1"></script>
+<script src="../js/shared.js?v=2026.08.11.1"></script>
 <script>
-const _sb = getSupabaseClient();
+let _sb;
 let piscinas = [];
 let piscinaEditando = null;
 
 (async () => {
+  await window.APP_BUILD_READY;
+  _sb = getSupabaseClient();
   const { data } = await _sb.auth.getSession();
-  if (!data.session) { window.location.href = '../index.html'; return; }
+  if (!data.session) { navigateWithBuild('../index.html'); return; }
   if (!requireRol(['admin'])) return;
   renderSidebar('admin_piscinas');
   cargarConfiguracion();
@@ -379,7 +382,7 @@ function mostrarToast(msg, tipo='') {
 
 async function cerrarSesion() {
   await _sb.auth.signOut(); sessionStorage.clear();
-  window.location.href = '../index.html';
+  navigateWithBuild('../index.html');
 }
 </script>
 </body>

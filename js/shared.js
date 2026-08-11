@@ -71,7 +71,7 @@ function renderSidebar(paginaActiva) {
       <nav class="sidebar-nav">
         ${items.map(item => {
           if (item.seccion) return `<span class="nav-section">${item.seccion}</span>`;
-          return `<a class="nav-item ${item.id === paginaActiva ? 'active' : ''}" href="${item.href}">
+          return `<a class="nav-item ${item.id === paginaActiva ? 'active' : ''}" href="${withBuild(item.href)}">
             <span class="nav-ico">${item.icon}</span><span class="nav-label">${item.label}</span>
           </a>`;
         }).join('')}
@@ -121,7 +121,7 @@ function rolLabel(rol) {
 
 function cambiarModulo(moduloId) {
   sessionStorage.setItem('dcp_modulo', moduloId);
-  window.location.href = 'dashboard.html';  // ya estamos en pages/
+  navigateWithBuild('dashboard.html');  // ya estamos en pages/
 }
 
 function mostrarProximamente() {
@@ -146,10 +146,11 @@ const iconLogout    = `<svg ${_sv}><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-
 
 // ---- VERIFICAR SESIÓN --------------------------------------
 async function verificarSesion(sb) {
-  const { data } = await sb.auth.getSession();
-  if (!data.session) { window.location.href = '../index.html'; return false; }
+  const { data, error } = await sb.auth.getSession();
+  if (error) throw error;
+  if (!data.session) { navigateWithBuild('../index.html'); return false; }
   const emp = sessionStorage.getItem('dcp_empresa');
-  if (!emp) { window.location.href = '../index.html'; return false; }
+  if (!emp) { navigateWithBuild('../index.html'); return false; }
   return true;
 }
 
@@ -163,7 +164,7 @@ function requireRol(rolesPermitidos) {
           <div style="font-size:48px;margin-bottom:16px">🔒</div>
           <div style="font-size:18px;font-weight:700;margin-bottom:8px">Acceso restringido</div>
           <div style="font-size:13px;color:#7A8FA6;margin-bottom:24px">No tienes permisos para acceder a esta sección.</div>
-          <a href="dashboard.html" style="background:#213653;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600">Volver al dashboard</a>
+          <a href="${withBuild('dashboard.html')}" style="background:#213653;color:white;padding:10px 24px;border-radius:8px;text-decoration:none;font-size:12px;font-weight:600">Volver al dashboard</a>
         </div>
       </div>`;
     return false;
@@ -176,7 +177,7 @@ async function cerrarSesion() {
   const sb = getSupabaseClient();
   await sb.auth.signOut();
   sessionStorage.clear();
-  window.location.href = '../index.html';
+  navigateWithBuild('../index.html');
 }
 
 // ---- HELPERS UI --------------------------------------------

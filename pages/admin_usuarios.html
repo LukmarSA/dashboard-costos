@@ -3,11 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Administración de Usuarios — LUKMAR</title>
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="../css/main.css?v=2026.08.11.1">
 <style>
   .users-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(300px,1fr)); gap:1rem; }
   .user-card {
@@ -268,16 +269,18 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/config.js"></script>
-<script src="../js/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="../js/config.js?v=2026.08.11.1"></script>
+<script src="../js/shared.js?v=2026.08.11.1"></script>
 <script>
-const _sb = getSupabaseClient();
+let _sb;
 
 let _usuarios = [];
 let _modoEdicion = false;
 
 (async () => {
+  await window.APP_BUILD_READY;
+  _sb = getSupabaseClient();
   if (!await verificarSesion(_sb)) return;
   if (!requireRol(['admin'])) return;
   renderSidebar('admin_usuarios');

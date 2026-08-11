@@ -3,6 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="apple-touch-icon-lukmar.png">
 <title>Dashboard Costos Piscinas · LUKMAR S.A.</title>
@@ -88,10 +89,22 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="js/config.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="js/config.js?v=2026.08.11.1"></script>
 <script>
-  const _sb = getSupabaseClient();
+  let _sb = null;
+
+  function mostrarErrorLogin(error) {
+    const msgErr = document.getElementById('msg-error');
+    msgErr.textContent = error?.message || String(error) || 'No se pudo iniciar la aplicación.';
+    msgErr.classList.add('visible');
+  }
+
+  async function obtenerCliente() {
+    await window.APP_BUILD_READY;
+    if (!_sb) _sb = getSupabaseClient();
+    return _sb;
+  }
 
   // Ojo contraseña
   document.getElementById('ojo-btn').addEventListener('click', function() {
@@ -129,25 +142,26 @@
     msgErr.classList.remove('visible');
 
     try {
-      const { data, error } = await _sb.auth.signInWithPassword({ email, password });
+      const sb = await obtenerCliente();
+      const { data, error } = await sb.auth.signInWithPassword({ email, password });
       if (error) throw error;
 
-      const { data: usuario } = await _sb.from('usuarios')
+      const { data: usuario, error: usuarioError } = await sb.from('usuarios')
         .select('rol, nombre, empresa_id')
         .eq('id', data.user.id)
         .single();
 
+      if (usuarioError) throw usuarioError;
       if (!usuario) throw new Error('Usuario sin perfil. Contacte al administrador.');
 
       sessionStorage.setItem('dcp_rol',     usuario.rol);
       sessionStorage.setItem('dcp_nombre',  usuario.nombre || email);
       sessionStorage.setItem('dcp_empresa', usuario.empresa_id);
 
-      window.location.href = 'pages/dashboard.html';
+      navigateWithBuild('pages/dashboard.html');
 
     } catch (err) {
-      msgErr.textContent = err.message || 'Error al ingresar. Intente nuevamente.';
-      msgErr.classList.add('visible');
+      mostrarErrorLogin(err);
       btn.disabled = false;
       spinner.style.display = 'none';
       texto.textContent = 'Ingresar';
@@ -156,8 +170,14 @@
 
   // Si ya hay sesión activa redirigir
   (async () => {
-    const { data } = await _sb.auth.getSession();
-    if (data.session) window.location.href = 'pages/dashboard.html';
+    try {
+      const sb = await obtenerCliente();
+      const { data, error } = await sb.auth.getSession();
+      if (error) throw error;
+      if (data.session) navigateWithBuild('pages/dashboard.html');
+    } catch (error) {
+      mostrarErrorLogin(error);
+    }
   })();
 </script>
 </body>

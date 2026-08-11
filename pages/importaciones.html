@@ -3,12 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Log de Importaciones · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css">
+<link rel="stylesheet" href="../css/main.css?v=2026.08.11.1">
 <style>
   .filtros-bar {
     display:flex; gap:8px; align-items:center; flex-wrap:wrap;
@@ -104,14 +105,16 @@
   </main>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
-<script src="../js/config.js"></script>
-<script src="../js/shared.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+<script src="../js/config.js?v=2026.08.11.1"></script>
+<script src="../js/shared.js?v=2026.08.11.1"></script>
 <script>
-const _sb = getSupabaseClient();
+let _sb;
 let _log = [];
 
 (async () => {
+  await window.APP_BUILD_READY;
+  _sb = getSupabaseClient();
   if (!await verificarSesion(_sb)) return;
   if (!requireRol(['contador', 'admin'])) return;
   renderSidebar('importaciones');
