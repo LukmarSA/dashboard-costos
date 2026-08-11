@@ -9,8 +9,8 @@
 <title>Dashboard Gerencial · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css?v=2026.08.11.1">
-<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
+<link rel="stylesheet" href="../css/main.css?v=2026.08.11.2">
+
 <style>
   .kpi-grid-6 { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
   .kpi-mini { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:0.875rem 1rem; border-top:3px solid var(--gris-1); }
@@ -356,10 +356,11 @@
   </div>
 </div>
 
-<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
-<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
-<script src="../js/config.js?v=2026.08.11.1"></script>
-<script src="../js/shared.js?v=2026.08.11.1"></script>
+<script src="../js/vendor/chart.umd.js?v=2026.08.11.2"></script>
+<script src="../js/vendor/xlsx.full.min.js?v=2026.08.11.2"></script>
+<script src="../js/vendor/supabase.min.js?v=2026.08.11.2"></script>
+<script src="../js/config.js?v=2026.08.11.2"></script>
+<script src="../js/shared.js?v=2026.08.11.2"></script>
 <script>
 let _sb;
 let _siembra = [];
@@ -455,32 +456,93 @@ async function rpcPaginado(fn, params, orderCols) {
   const key  = APP_CONFIG.supabase.anonKey;
   const order = (orderCols || []).map(c => c + '.asc').join(',');
   const lim = 1000;
-  let todo = [], offset = 0;
+  const maxPaginas = 100;
+
+  let todo = [];
+  let offset = 0;
+  let pagina = 0;
+  let firmaAnterior = null;
+
   while (true) {
-    const url = `${base}/rest/v1/rpc/${fn}?` + (order ? `order=${order}&` : '') + `offset=${offset}&limit=${lim}`;
-    const resp = await fetch(url, {
-      method: 'POST',
-      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
-      body: JSON.stringify(params),
-    });
-    const responseBody = await resp.text();
-    if (!resp.ok) {
-      throw new Error(`RPC ${fn} falló (HTTP ${resp.status}): ${responseBody || resp.statusText}`);
+    if (pagina >= maxPaginas) {
+      throw new Error(`RPC ${fn} excedió el límite de ${maxPaginas} páginas.`);
     }
+
+    const url = `${base}/rest/v1/rpc/${fn}?` +
+      (order ? `order=${order}&` : '') +
+      `offset=${offset}&limit=${lim}`;
+
+    const controller = new AbortController();
+    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
+
+    let resp;
+
+    try {
+      resp = await fetch(url, {
+        method: 'POST',
+        headers: {
+          'apikey': key,
+          'Authorization': 'Bearer ' + key,
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(params),
+        signal: controller.signal,
+      });
+    } catch (error) {
+      if (error?.name === 'AbortError') {
+        throw new Error(`RPC ${fn} excedió el tiempo máximo de 20 segundos.`);
+      }
+
+      throw new Error(
+        `RPC ${fn} no respondió: ${error?.message || String(error)}`
+      );
+    } finally {
+      window.clearTimeout(timeoutId);
+    }
+
+    const responseBody = await resp.text();
+
+    if (!resp.ok) {
+      throw new Error(
+        `RPC ${fn} falló (HTTP ${resp.status}): ` +
+        `${responseBody || resp.statusText}`
+      );
+    }
+
     let data;
+
     try {
       data = responseBody ? JSON.parse(responseBody) : [];
     } catch (error) {
-      throw new Error(`RPC ${fn} devolvió una respuesta JSON inválida: ${responseBody}`);
+      throw new Error(
+        `RPC ${fn} devolvió una respuesta JSON inválida: ${responseBody}`
+      );
     }
+
     if (!Array.isArray(data)) {
-      throw new Error(`RPC ${fn} devolvió un cuerpo inesperado: ${responseBody}`);
+      throw new Error(
+        `RPC ${fn} devolvió un cuerpo inesperado: ${responseBody}`
+      );
     }
+
     if (data.length === 0) break;
+
+    if (firmaAnterior === responseBody) {
+      throw new Error(
+        `RPC ${fn} repitió la misma página. ` +
+        `La paginación se detuvo para evitar un ciclo infinito.`
+      );
+    }
+
+    firmaAnterior = responseBody;
     todo = todo.concat(data);
+    pagina += 1;
+
     if (data.length < lim) break;
+
     offset += lim;
   }
+
   return todo;
 }
 

@@ -15,7 +15,7 @@ const APP_CONFIG = {
 
 // ---- Supabase client (CDN) ----------------------------------
 // Requiere en el HTML:
-// <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.112.3"></script>
+// <script src="js/vendor/supabase.min.js?v=2026.08.11.2"></script>
 function getSupabaseClient() {
   if (typeof supabase === 'undefined') {
     throw new Error('Supabase JS no cargado. Verifica el script CDN.');
