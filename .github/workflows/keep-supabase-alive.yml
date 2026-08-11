@@ -13,6 +13,6 @@ jobs:
       - name: Ping Supabase Database Table
         run: |
           # IMPORTANTE: Reemplaza "empresas" por el nombre de cualquier tabla que tengas en tu Base de Datos
-          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/mi_tabla_real?limit=1" \
+          curl -i -X GET "${{ secrets.SUPABASE_URL }}/rest/v1/empresas?limit=1" \
           -H "apikey: ${{ secrets.SUPABASE_ANON_KEY }}" \
           -H "Authorization: Bearer ${{ secrets.SUPABASE_ANON_KEY }}"
