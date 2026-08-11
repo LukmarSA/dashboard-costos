@@ -15,15 +15,45 @@ const APP_CONFIG = {
 
 // ---- Supabase client (CDN) ----------------------------------
 // Requiere en el HTML:
-// <script src="js/vendor/supabase.min.js?v=2026.08.11.2"></script>
+// <script src="js/vendor/supabase.min.js?v=2026.08.11.3"></script>
 function getSupabaseClient() {
   if (typeof supabase === 'undefined') {
-    throw new Error('Supabase JS no cargado. Verifica el script CDN.');
+    throw new Error('Supabase JS no cargado. Verifica el archivo local del cliente.');
   }
   return supabase.createClient(
     APP_CONFIG.supabase.url,
     APP_CONFIG.supabase.anonKey
   );
+}
+
+async function restaurarPerfilUsuario(sb, user) {
+  if (!user?.id) {
+    throw new Error('La sesión no contiene un usuario válido.');
+  }
+
+  const { data: usuario, error } = await sb.from('usuarios')
+    .select('rol, nombre, empresa_id')
+    .eq('id', user.id)
+    .maybeSingle();
+
+  if (error) {
+    const detalle = [error.message, error.details, error.hint]
+      .filter(Boolean)
+      .join(' · ');
+    throw new Error(
+      `No se pudo restaurar el perfil del usuario: ${detalle || error.code || 'error desconocido'}`
+    );
+  }
+
+  if (!usuario?.empresa_id) {
+    throw new Error('Usuario sin perfil o empresa asignada. Contacte al administrador.');
+  }
+
+  sessionStorage.setItem('dcp_rol', usuario.rol || 'gerente');
+  sessionStorage.setItem('dcp_nombre', usuario.nombre || user.email || 'Usuario');
+  sessionStorage.setItem('dcp_empresa', usuario.empresa_id);
+
+  return usuario;
 }
 
 // ---- Roles --------------------------------------------------

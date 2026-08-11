@@ -149,8 +149,17 @@ async function verificarSesion(sb) {
   const { data, error } = await sb.auth.getSession();
   if (error) throw error;
   if (!data.session) { navigateWithBuild('../index.html'); return false; }
-  const emp = sessionStorage.getItem('dcp_empresa');
-  if (!emp) { navigateWithBuild('../index.html'); return false; }
+
+  const perfilCompleto = [
+    'dcp_rol',
+    'dcp_nombre',
+    'dcp_empresa',
+  ].every(key => sessionStorage.getItem(key));
+
+  if (!perfilCompleto) {
+    await restaurarPerfilUsuario(sb, data.session.user);
+  }
+
   return true;
 }
 
