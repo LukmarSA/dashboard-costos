@@ -1688,7 +1688,7 @@ function ordenar(col) {
 
 function getVal(r, col) {
   const corrida = r.corridas?.codigo_corrida || '';
-  const cId = r.corridas?.id || '';
+  const cId = r.corrida_id || r.corridas?.id || '';
   switch(col) {
     case 'codigo': return r.piscinas?.codigo || '';
     case 'dias':   return r.dias_totales || 0;
