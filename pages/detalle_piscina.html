@@ -110,18 +110,10 @@
         <span id="bc-piscina">—</span>
       </div>
 
-      <!-- Ficha operativa (PISCINA) — movida al top -->
-      <div style="display:grid;grid-template-columns:repeat(6,minmax(0,1fr));gap:0.875rem;margin-top:1.25rem;margin-bottom:1rem">
-        <div class="ficha-card"><div class="ficha-label">Piscina</div><div class="ficha-val" id="f-codigo">—</div><div class="ficha-sub" id="f-corrida">—</div></div>
-        <div class="ficha-card"><div class="ficha-label">Hectáreas</div><div class="ficha-val" id="f-has">—</div><div class="ficha-sub">en cultivo</div></div>
-        <div class="ficha-card"><div class="ficha-label">Días de cultivo</div><div class="ficha-val" id="f-dias">—</div><div class="ficha-sub" id="f-dias-sub">—</div></div>
-        <div class="ficha-card"><div class="ficha-label">Larvas sembradas</div><div class="ficha-val" id="f-larvas">—</div><div class="ficha-sub">unidades</div></div>
-        <div class="ficha-card"><div class="ficha-label">Kg balanceado</div><div class="ficha-val" id="f-bal">—</div><div class="ficha-sub">consumido</div></div>
-        <div class="ficha-card"><div class="ficha-label">Fecha siembra</div><div class="ficha-val" style="font-size:1rem;padding-top:4px" id="f-siembra">—</div><div class="ficha-sub">inicio de cultivo</div></div>
-      </div>
-
-      <!-- KPIs de costo (COSTO TOTAL) — movido debajo de la ficha -->
-      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
+      <!-- Tarjetas reorganizadas 8/7 (identidad + costos, estilo unificado) -->
+      <!-- Fila 1 (8): Piscina · Costo Total · $/Lb · Biomasa Proyectada · Hectáreas · Días · Larvas · Fecha Siembra -->
+      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(8,minmax(0,1fr))">
+        <div class="kpi-costo-card" style="border-left-color:var(--azul-claro)"><div class="kpi-costo-label">Piscina</div><div class="kpi-costo-val" id="f-codigo">—</div><div class="kpi-costo-sub" id="f-corrida">—</div></div>
         <div class="kpi-costo-card" id="sem-total" style="border-left-color:var(--azul-claro)">
           <div class="kpi-costo-label">Costo total</div>
           <div class="kpi-costo-val" id="kc-total">—</div>
@@ -137,6 +129,15 @@
           <div class="kpi-costo-val" style="color:#16A085" id="kc-biomasa">—</div>
           <div class="kpi-costo-sub" id="kc-biomasa-fecha">—</div>
         </div>
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Hectáreas</div><div class="kpi-costo-val" id="f-has">—</div><div class="kpi-costo-sub">en cultivo</div></div>
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Días de cultivo</div><div class="kpi-costo-val" id="f-dias">—</div><div class="kpi-costo-sub" id="f-dias-sub">—</div></div>
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Larvas sembradas</div><div class="kpi-costo-val" id="f-larvas">—</div><div class="kpi-costo-sub">unidades</div></div>
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Fecha siembra</div><div class="kpi-costo-val" style="font-size:1rem;padding-top:4px" id="f-siembra">—</div><div class="kpi-costo-sub">inicio de cultivo</div></div>
+      </div>
+
+      <!-- Fila 2 (7): Kg Balanceado · Costo $/Has/Día · Directos · Indirectos · $/Millar · $/Kg · Insumos -->
+      <div class="kpi-costos" style="margin-top:0.875rem;grid-template-columns:repeat(7,minmax(0,1fr))">
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Kg balanceado</div><div class="kpi-costo-val" id="f-bal">—</div><div class="kpi-costo-sub">consumido</div></div>
         <div class="kpi-costo-card" id="sem-hd">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
             <div class="kpi-costo-label">Costo total $/Has/Día</div>
@@ -459,7 +460,9 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   }
 
   // Consumo real de bodega de ESTA piscina (consumo_real_piscina · 01-ene→23-jun)
-  const piscinaCod = (codigoCorrida || '').split('-')[0];
+  // Código real de la piscina (NO derivar de la corrida: el formato varía, ej. "LM01-L09-EN-001")
+  let piscinaCod = (codigoCorrida || '').split('-')[0];
+  { const { data: _pr } = await _sb.from('piscinas').select('codigo').eq('id', piscinaIdParam).maybeSingle(); if (_pr?.codigo) piscinaCod = _pr.codigo; }
   let realPorProd = {};
   if (codigosUnicos.length > 0 && piscinaCod) {
     const { data: cons } = await _sb.from('consumo_real_piscina')
