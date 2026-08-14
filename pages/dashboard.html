@@ -301,6 +301,7 @@
                 <th class="sortable right" onclick="ordenar('dias')">Días <span class="sort-icon">↓</span></th>
                 <th class="sortable right" onclick="ordenar('has')">Has <span class="sort-icon">↕</span></th>
                 <th class="sortable right" onclick="ordenar('costo')">Costo $ <span class="sort-icon">↕</span></th>
+                <th class="sortable right" onclick="ordenar('lb')">$/Lb <span class="sort-icon">↕</span></th>
                 <th class="sortable right" onclick="ordenar('hd')">$/Has/Día <span class="sort-icon">↕</span></th>
                 <th>Tipo</th>
                 <th>Etapa</th>
@@ -1628,7 +1629,7 @@ async function descargarPDF() {
 function renderTabla(lista) {
   const tbody = document.getElementById('tabla-body');
   if (!lista.length) {
-    tbody.innerHTML = `<tr><td colspan="8" style="padding:2rem;text-align:center;color:var(--gris-3)">Sin resultados</td></tr>`;
+    tbody.innerHTML = `<tr><td colspan="11" style="padding:2rem;text-align:center;color:var(--gris-3)">Sin resultados</td></tr>`;
     return;
   }
   tbody.innerHTML = lista.map(r => {
@@ -1640,6 +1641,8 @@ function renderTabla(lista) {
     const dias      = r.dias_totales || 0;
     const has       = r.has || 1;
     const hd        = costo > 0 && dias > 0 ? costo / has / dias : 0;
+    const biomasa   = Number(r.biomasa_proyectada_lbs) || 0;
+    const lb        = (costo > 0 && biomasa > 0) ? costo / biomasa : 0;
     const sem       = semaforoDias(esPrecria ? 0 : dias);
     const piscinaId = r.piscina_id || r.piscinas?.id || '';
     const codigoPis = r.piscinas?.codigo || '';
@@ -1650,6 +1653,7 @@ function renderTabla(lista) {
       <td class="right"><strong>${dias}</strong></td>
       <td class="right">${(r.has||0).toFixed(2)}</td>
       <td class="right">${costo > 0 ? F.abr(costo) : '<span style="color:var(--gris-2)">—</span>'}</td>
+      <td class="right">${lb > 0 ? '$'+lb.toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
       <td class="right">${hd > 0 ? '$'+hd.toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
       <td><span class="badge ${esPrecria?'badge-naranja':'badge-azul'}" style="font-size:10px">${esPrecria?'Precría':'Engorde'}</span></td>
       <td>${esPrecria ? '<span style="color:var(--gris-3);font-size:11px">—</span>' : '<span class="badge '+sem.clase+'" style="font-size:10px">'+sem.label+'</span>'}</td>
@@ -1691,6 +1695,7 @@ function getVal(r, col) {
     case 'has':    return r.has || 0;
     case 'costo':  return _costosPorCorrida[cId] || 0;
     case 'hd':     { const c=_costosPorCorrida[cId]||0, d=r.dias_totales||1, h=r.has||1; return c>0?c/h/d:0; }
+    case 'lb':     { const c=_costosPorCorrida[cId]||0, b=Number(r.biomasa_proyectada_lbs)||0; return (c>0&&b>0)?c/b:0; }
     default: return 0;
   }
 }
