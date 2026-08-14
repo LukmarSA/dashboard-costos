@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Importar Siembra · Dashboard Costos LUKMAR</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css?v=2026.08.11.3">
+<link rel="stylesheet" href="../css/main.css">
 </head>
 <body>
 
@@ -131,19 +130,17 @@
   </main>
 </div>
 
-<script src="../js/vendor/supabase.min.js?v=2026.08.11.3"></script>
-<script src="../js/vendor/xlsx.full.min.js?v=2026.08.11.3"></script>
-<script src="../js/config.js?v=2026.08.11.3"></script>
-<script src="../js/shared.js?v=2026.08.11.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
 <script>
-let _sb;
+const _sb = getSupabaseClient();
 let _filas = [];        // datos parseados del Excel
 let _piscinasDB = [];   // piscinas incluidas en Supabase
 let _archivoNombre = '';
 
 (async () => {
-  await window.APP_BUILD_READY;
-  _sb = getSupabaseClient();
   if (!await verificarSesion(_sb)) return;
   if (!requireRol(['contador', 'admin'])) return;
   renderSidebar('importar_siembra');
@@ -228,6 +225,7 @@ function procesarArchivo(file) {
       const idxLab    = headers.indexOf('Lab.');
       const idxNaup   = headers.indexOf('Nauplio');
       const idxGramos = headers.indexOf('Gramos');
+      const idxBiom   = headers.indexOf('Biomasa Proyectada');
 
       // Procesar filas desde fila 8 en adelante
       _filas = [];
@@ -272,6 +270,7 @@ function procesarArchivo(file) {
           nauplio:        row[idxNaup]  ? String(row[idxNaup]).trim()   : null,
           sembrada:       !!row[idxFech], // true si tiene fecha de siembra
           gramos:         row[idxGramos] ? Number(row[idxGramos]) : null,
+          biomasa_proyectada_lbs: (idxBiom >= 0 && row[idxBiom]) ? Number(row[idxBiom]) : null,
           estado,
           piscina_id:     piscinaDB?.id || null,
         });
@@ -413,6 +412,7 @@ async function ejecutarImportacion() {
         nauplio:        r.nauplio        || null,
         sembrada:       r.sembrada       || false,
         gramos:         r.gramos         ?? null,
+        biomasa_proyectada_lbs: r.biomasa_proyectada_lbs ?? null,
       }));
 
     if (registros.length === 0) throw new Error('No se pudieron vincular registros con corridas.');
