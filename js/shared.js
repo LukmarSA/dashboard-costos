@@ -3,6 +3,15 @@
 // Sidebar escalable por módulos · Roles · Helpers UI
 // ============================================================
 
+// ---- Cache-busting: propaga el ?build= de la pagina actual a los links del sidebar ----
+function withBuild(href) {
+  try {
+    var b = new URLSearchParams(location.search).get('build');
+    return b ? href + (href.indexOf('?') >= 0 ? '&' : '?') + 'build=' + b : href;
+  } catch (e) { return href; }
+}
+
+
 // ---- MÓDULOS DE LA PLATAFORMA (escalable) ------------------
 const MODULOS = [
   {
