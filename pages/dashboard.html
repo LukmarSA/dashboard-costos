@@ -216,10 +216,10 @@
 
       <!-- KPIs ejecutivos -->
       <div class="kpi-grid-6" id="kpi-row">
-        <div class="kpi-mini c-azul"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">en proceso</div></div>
-        <div class="kpi-mini c-verde"><div class="kpi-mini-label">Total Has</div><div class="kpi-mini-val" id="k-has">—</div><div class="kpi-mini-sub">hectáreas en cultivo</div></div>
+        <div class="kpi-mini c-azul"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">Activas</div></div>
+        <div class="kpi-mini c-verde"><div class="kpi-mini-label">Total Has</div><div class="kpi-mini-val" id="k-has">—</div><div class="kpi-mini-sub">hectáreas en producción</div></div>
         <div class="kpi-mini c-naranja"><div class="kpi-mini-label">Costo total</div><div class="kpi-mini-val" id="k-costo">—</div><div class="kpi-mini-sub">acumulado período</div></div>
-        <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb</div><div class="kpi-mini-val" style="color:#0E7C7B" id="k-lb">—</div><div class="kpi-mini-sub">costo ÷ biomasa proy.</div></div>
+        <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb</div><div class="kpi-mini-val" style="color:#0E7C7B" id="k-lb">—</div><div class="kpi-mini-sub">costo ÷ biomasa a la fecha</div></div>
         <div class="kpi-mini c-morado"><div class="kpi-mini-label">$/Has/Día prom.</div><div class="kpi-mini-val" id="k-hd">—</div><div class="kpi-mini-sub">promedio ponderado</div></div>
         <div class="kpi-mini" style="border-top-color:#1E6FBF"><div class="kpi-mini-label">Directos $/Has/Día</div><div class="kpi-mini-val" style="color:#1E6FBF" id="k-dir">—</div><div class="kpi-mini-sub">4 grupos de costo</div></div>
         <div class="kpi-mini" style="border-top-color:#534AB7"><div class="kpi-mini-label">Indirectos $/Has/Día</div><div class="kpi-mini-val" style="color:#534AB7" id="k-ind">—</div><div class="kpi-mini-sub">8 grupos de costo</div></div>
@@ -312,6 +312,14 @@
               <tr><td colspan="8" style="padding:2rem;text-align:center;color:var(--gris-3)">Cargando…</td></tr>
             </tbody>
           </table>
+        </div>
+        <div style="display:flex;flex-wrap:wrap;gap:0.4rem 1.25rem;align-items:center;padding:0.7rem 1.25rem;border-top:1px solid var(--gris-1);font-size:11px;color:var(--gris-3)">
+          <span style="font-weight:700;color:var(--azul-oscuro)">Etapa (días de cultivo):</span>
+          <span><span class="badge badge-gris" style="font-size:9px">Preparación</span> ≤ 0</span>
+          <span><span class="badge badge-azul" style="font-size:9px">Cría</span> 1–30</span>
+          <span><span class="badge badge-verde" style="font-size:9px">Engorde</span> 31–60</span>
+          <span><span class="badge badge-amarillo" style="font-size:9px">Cosecha próxima</span> 61–90</span>
+          <span><span class="badge badge-rojo" style="font-size:9px">Cosecha urgente</span> &gt; 90</span>
         </div>
       </div>
 

@@ -112,7 +112,7 @@
 
       <!-- Tarjetas reorganizadas 8/7 (identidad + costos, estilo unificado) -->
       <!-- Fila 1 (8): Piscina · Costo Total · $/Lb · Biomasa Proyectada · Hectáreas · Días · Larvas · Fecha Siembra -->
-      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(8,minmax(0,1fr))">
+      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
         <div class="kpi-costo-card" style="border-left-color:var(--azul-claro)"><div class="kpi-costo-label">Piscina</div><div class="kpi-costo-val" id="f-codigo">—</div><div class="kpi-costo-sub" id="f-corrida">—</div></div>
         <div class="kpi-costo-card" id="sem-total" style="border-left-color:var(--azul-claro)">
           <div class="kpi-costo-label">Costo total</div>
@@ -122,12 +122,17 @@
         <div class="kpi-costo-card" style="border-left-color:#0E7C7B">
           <div class="kpi-costo-label">$/Lb</div>
           <div class="kpi-costo-val" style="color:#0E7C7B" id="kc-lb">—</div>
-          <div class="kpi-costo-sub">costo ÷ biomasa proy.</div>
+          <div class="kpi-costo-sub">costo ÷ biomasa a la fecha</div>
         </div>
         <div class="kpi-costo-card" style="border-left-color:#16A085">
-          <div class="kpi-costo-label">Biomasa Proyectada</div>
+          <div class="kpi-costo-label">Biomasa a la Fecha</div>
           <div class="kpi-costo-val" style="color:#16A085" id="kc-biomasa">—</div>
           <div class="kpi-costo-sub" id="kc-biomasa-fecha">—</div>
+        </div>
+        <div class="kpi-costo-card" style="border-left-color:#8E44AD">
+          <div class="kpi-costo-label">Peso</div>
+          <div class="kpi-costo-val" style="color:#8E44AD" id="kc-peso">—</div>
+          <div class="kpi-costo-sub" id="kc-peso-fecha">—</div>
         </div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Hectáreas</div><div class="kpi-costo-val" id="f-has">—</div><div class="kpi-costo-sub">en cultivo</div></div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Días de cultivo</div><div class="kpi-costo-val" id="f-dias">—</div><div class="kpi-costo-sub" id="f-dias-sub">—</div></div>
@@ -136,7 +141,7 @@
       </div>
 
       <!-- Fila 2 (7): Kg Balanceado · Costo $/Has/Día · Directos · Indirectos · $/Millar · $/Kg · Insumos -->
-      <div class="kpi-costos" style="margin-top:0.875rem;grid-template-columns:repeat(7,minmax(0,1fr))">
+      <div class="kpi-costos" style="margin-top:0.875rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
         <div class="kpi-costo-card"><div class="kpi-costo-label">Kg balanceado</div><div class="kpi-costo-val" id="f-bal">—</div><div class="kpi-costo-sub">consumido</div></div>
         <div class="kpi-costo-card" id="sem-hd">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -245,11 +250,12 @@
                 <th class="right">Costo $</th>
                 <th class="right">Cantidad</th>
                 <th class="right">% Total</th>
+                <th class="right">$/Lb</th>
                 <th class="right">$/Has/Día</th>
               </tr>
             </thead>
             <tbody id="tabla-costos-body">
-              <tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--gris-3)">Cargando costos…</td></tr>
+              <tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--gris-3)">Cargando costos…</td></tr>
             </tbody>
           </table>
         </div>
@@ -395,7 +401,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
 
   if (!cor?.id) {
     document.getElementById('tabla-costos-body').innerHTML =
-      `<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--gris-3)">
+      `<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--gris-3)">
         Corrida "${codigoCorrida}" no encontrada.
       </td></tr>`;
     document.getElementById('kc-total').textContent = '—';
@@ -415,7 +421,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
 
   if (!ufc) {
     document.getElementById('tabla-costos-body').innerHTML =
-      `<tr><td colspan="5" style="padding:2rem;text-align:center;color:var(--gris-3)">
+      `<tr><td colspan="6" style="padding:2rem;text-align:center;color:var(--gris-3)">
         Sin costos importados para la corrida ${codigoCorrida}.
       </td></tr>`;
     document.getElementById('lbl-sin-costos').style.display = 'block';
@@ -513,11 +519,12 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   // $/Lb = costo total ÷ biomasa proyectada (libras) · fecha de último muestreo desde ACOSUX
   const biomasaLbs = Number(s?.biomasa_proyectada_lbs) || 0;
   const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
-  let fechaMuestreo = null;
+  let fechaMuestreo = null, pesoMuestreo = 0;
   if (piscinaCod) {
     const { data: gm } = await _sb.from('gramaje_muestreo')
-      .select('fecha_muestreo').eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
+      .select('fecha_muestreo, peso_gramos').eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
     fechaMuestreo = gm?.fecha_muestreo || null;
+    pesoMuestreo  = Number(gm?.peso_gramos) || 0;
   }
 
   // Cargar presupuesto para semaforizar
@@ -579,6 +586,8 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   document.getElementById('kc-lb').textContent     = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
   document.getElementById('kc-biomasa').textContent = biomasaLbs > 0 ? F.num(biomasaLbs, 0) + ' lb' : '—';
   document.getElementById('kc-biomasa-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
+  document.getElementById('kc-peso').textContent = pesoMuestreo > 0 ? F.num(pesoMuestreo, 2) + ' g' : '—';
+  document.getElementById('kc-peso-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
   document.getElementById('kc-hd').textContent     = '$' + hd.toFixed(2);
   document.getElementById('kc-millar').textContent = valMillar > 0 ? '$' + valMillar.toFixed(2) : '—';
   document.getElementById('kc-kg').textContent     = valKgDet  > 0 ? '$' + valKgDet.toFixed(2)  : '—';
@@ -649,6 +658,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
         <span style="font-weight:600">${pct}%</span>
         ${sinDatos?'':' <div class="barra-wrap"><div class="barra" style="width:'+pct+'%;background:'+color+'"></div></div>'}
       </td>
+      <td class="right" style="font-weight:600;color:#0E7C7B">${(biomasaLbs>0 && data.total>0) ? '$'+(data.total/biomasaLbs).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
       <td class="right" style="font-size:10px;color:var(--gris-3)">${unidad}<br><span style="font-size:12px;color:var(--azul-oscuro);font-weight:600">${displayHD}</span></td>
     </tr>`;
 
@@ -663,6 +673,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
         <td class="right">$${F.num(p.valor,2)}</td>
         <td class="right">${pCantCell}</td>
         <td class="right">${pct2}%</td>
+        <td class="right" style="color:#0E7C7B">${biomasaLbs>0 ? '$'+(p.valor/biomasaLbs).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
         <td class="right">$${(p.valor/has/dias).toFixed(2)}</td>
       </tr>`;
     });
@@ -834,19 +845,44 @@ function renderGraficoDet(grupos, total) {
     </div>`).join('');
 }
 
+let _sortInd = { col: 'valor', dir: -1 };   // por defecto: mayor → menor por $
+let _indRows = [];
+let _indHd   = 0;
+
 function renderIndirectos(porGrupo, has, dias, total) {
   const totalInd = GRUPOS_INDIRECTOS.reduce((a,g) => a + (porGrupo[g]?.total||0), 0);
-  const hdInd = has > 0 && dias > 0 ? totalInd/has/dias : 0;
-
-  let html = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem">
-    <span style="font-size:13px;font-weight:700;color:var(--azul-oscuro)">Total indirectos</span>
-    <span style="font-size:14px;font-weight:700;color:#534AB7">$${hdInd.toFixed(2)}/Has/Día</span>
-  </div>`;
-
-  GRUPOS_INDIRECTOS.forEach(g => {
+  _indHd = has > 0 && dias > 0 ? totalInd/has/dias : 0;
+  _indRows = GRUPOS_INDIRECTOS.map(g => {
     const val = porGrupo[g]?.total || 0;
     const hd  = has > 0 && dias > 0 ? val/has/dias : 0;
     const pct = totalInd > 0 ? (val/totalInd*100) : 0;
+    return { g, val, hd, pct };
+  });
+  _pintarIndirectos();
+}
+
+function ordenarInd(col) {
+  if (_sortInd.col === col) _sortInd.dir *= -1;
+  else { _sortInd.col = col; _sortInd.dir = (col === 'nombre') ? 1 : -1; }
+  _pintarIndirectos();
+}
+
+function _pintarIndirectos() {
+  const { col, dir } = _sortInd;
+  const rows = [..._indRows].sort((a,b) => {
+    const va = col === 'nombre' ? a.g : a.hd, vb = col === 'nombre' ? b.g : b.hd;
+    return va < vb ? -dir : va > vb ? dir : 0;
+  });
+  const flecha = c => _sortInd.col === c ? (_sortInd.dir > 0 ? ' ▲' : ' ▼') : '';
+  let html = `<div style="display:flex;justify-content:space-between;align-items:baseline;margin-bottom:0.75rem">
+    <span style="font-size:13px;font-weight:700;color:var(--azul-oscuro)">Total indirectos</span>
+    <span style="font-size:14px;font-weight:700;color:#534AB7">$${_indHd.toFixed(2)}/Has/Día</span>
+  </div>
+  <div style="display:flex;justify-content:space-between;font-size:10px;font-weight:700;color:var(--gris-3);text-transform:uppercase;letter-spacing:0.04em;border-bottom:1px solid var(--gris-1);padding-bottom:5px;margin-bottom:9px">
+    <span style="cursor:pointer;user-select:none" onclick="ordenarInd('nombre')">Grupo${flecha('nombre')}</span>
+    <span style="cursor:pointer;user-select:none" onclick="ordenarInd('valor')">$/Has/Día${flecha('valor')}</span>
+  </div>`;
+  rows.forEach(({ g, hd, pct }) => {
     html += `<div style="margin-bottom:8px">
       <div style="display:flex;justify-content:space-between;font-size:11px;margin-bottom:3px">
         <span style="color:var(--gris-3)">${g}</span>
@@ -857,7 +893,6 @@ function renderIndirectos(porGrupo, has, dias, total) {
       </div>
     </div>`;
   });
-
   document.getElementById('indirectos-body').innerHTML = html;
 }
 
@@ -895,13 +930,14 @@ function descargarExcelDet() {
   const filasCostos = [];
   document.querySelectorAll('#tabla-costos-body tr.grupo-row').forEach(tr => {
     const celdas = tr.querySelectorAll('td');
-    if (celdas.length >= 5) {
+    if (celdas.length >= 6) {
       const grp   = celdas[0]?.textContent?.replace(/›/g,'').trim().replace(/\(.*\)/,'').trim();
       const costo = celdas[1]?.textContent?.trim();
       const cant  = celdas[2]?.textContent?.trim();
       const pct   = celdas[3]?.textContent?.trim();
-      const hd2   = celdas[4]?.textContent?.trim();
-      filasCostos.push([grp, costo, cant, pct, hd2]);
+      const lb    = celdas[4]?.textContent?.trim();
+      const hd2   = celdas[5]?.textContent?.trim();
+      filasCostos.push([grp, costo, cant, pct, lb, hd2]);
     }
   });
 
@@ -922,10 +958,10 @@ function descargarExcelDet() {
     ['Indirectos $/Has/Día', ind],
     [],
     ['COSTOS POR GRUPO'],
-    ['Grupo', 'Costo $', 'Cantidad', '% Total', '$/Has/Día'],
+    ['Grupo', 'Costo $', 'Cantidad', '% Total', '$/Lb', '$/Has/Día'],
     ...filasCostos,
   ]);
-  ws1['!cols'] = [{wch:28},{wch:18},{wch:16},{wch:14},{wch:14}];
+  ws1['!cols'] = [{wch:28},{wch:18},{wch:16},{wch:12},{wch:12},{wch:14}];
   XLSX.utils.book_append_sheet(wb, ws1, 'Detalle piscina');
   XLSX.writeFile(wb, `Detalle_${codigo}_${new Date().toISOString().slice(0,10)}.xlsx`);
   toast('Excel descargado.', 'success');
@@ -949,8 +985,9 @@ function descargarPDFDet() {
     const costo = celdas[1]?.textContent?.trim();
     const cant  = celdas[2]?.textContent?.trim();
     const pct   = celdas[3]?.textContent?.trim();
-    const hd2   = celdas[4]?.textContent?.trim();
-    filasHTML += `<tr><td>${grp}</td><td>${costo}</td><td>${cant}</td><td>${pct}</td><td>${hd2}</td></tr>`;
+    const lb    = celdas[4]?.textContent?.trim();
+    const hd2   = celdas[5]?.textContent?.trim();
+    filasHTML += `<tr><td>${grp}</td><td>${costo}</td><td>${cant}</td><td>${pct}</td><td>${lb}</td><td>${hd2}</td></tr>`;
   });
 
   const win = window.open('','_blank');
@@ -982,7 +1019,7 @@ function descargarPDFDet() {
       <div class="kpi"><div class="kpi-l">Indirectos $/Has/Día</div><div class="kpi-v">${document.getElementById('kc-ind')?.textContent||'—'}</div></div>
     </div>
     <h2>Costos por grupo</h2>
-    <table><thead><tr><th>Grupo</th><th>Costo $</th><th>Cantidad</th><th>% Total</th><th>$/Has/Día</th></tr></thead>
+    <table><thead><tr><th>Grupo</th><th>Costo $</th><th>Cantidad</th><th>% Total</th><th>$/Lb</th><th>$/Has/Día</th></tr></thead>
     <tbody>${filasHTML}</tbody></table>
   </body></html>`);
   win.document.close();
