@@ -110,9 +110,9 @@
         <span id="bc-piscina">—</span>
       </div>
 
-      <!-- Tarjetas reorganizadas 8/7 (identidad + costos, estilo unificado) -->
-      <!-- Fila 1 (8): Piscina · Costo Total · $/Lb · Biomasa Proyectada · Hectáreas · Días · Larvas · Fecha Siembra -->
-      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <!-- Tarjetas: 2 filas de 8 (estilo unificado) -->
+      <!-- Fila 1 (8): Piscina · Costo Total · $/Lb · Biomasa · Peso · Hectáreas · Días · Larvas -->
+      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(8,minmax(0,1fr))">
         <div class="kpi-costo-card" style="border-left-color:var(--azul-claro)"><div class="kpi-costo-label">Piscina</div><div class="kpi-costo-val" id="f-codigo">—</div><div class="kpi-costo-sub" id="f-corrida">—</div></div>
         <div class="kpi-costo-card" id="sem-total" style="border-left-color:var(--azul-claro)">
           <div class="kpi-costo-label">Costo total</div>
@@ -137,11 +137,11 @@
         <div class="kpi-costo-card"><div class="kpi-costo-label">Hectáreas</div><div class="kpi-costo-val" id="f-has">—</div><div class="kpi-costo-sub">en cultivo</div></div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Días de cultivo</div><div class="kpi-costo-val" id="f-dias">—</div><div class="kpi-costo-sub" id="f-dias-sub">—</div></div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Larvas sembradas</div><div class="kpi-costo-val" id="f-larvas">—</div><div class="kpi-costo-sub">unidades</div></div>
-        <div class="kpi-costo-card"><div class="kpi-costo-label">Fecha siembra</div><div class="kpi-costo-val" style="font-size:1rem;padding-top:4px" id="f-siembra">—</div><div class="kpi-costo-sub">inicio de cultivo</div></div>
       </div>
 
-      <!-- Fila 2 (7): Kg Balanceado · Costo $/Has/Día · Directos · Indirectos · $/Millar · $/Kg · Insumos -->
-      <div class="kpi-costos" style="margin-top:0.875rem;grid-template-columns:repeat(auto-fit,minmax(160px,1fr))">
+      <!-- Fila 2 (8): Fecha Siembra · Kg Balanceado · Costo $/Has/Día · Directos · Indirectos · $/Millar · $/Kg · Insumos -->
+      <div class="kpi-costos" style="margin-top:0.875rem;grid-template-columns:repeat(8,minmax(0,1fr))">
+        <div class="kpi-costo-card"><div class="kpi-costo-label">Fecha siembra</div><div class="kpi-costo-val" style="font-size:1rem;padding-top:4px" id="f-siembra">—</div><div class="kpi-costo-sub">inicio de cultivo</div></div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Kg balanceado</div><div class="kpi-costo-val" id="f-bal">—</div><div class="kpi-costo-sub">consumido</div></div>
         <div class="kpi-costo-card" id="sem-hd">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
