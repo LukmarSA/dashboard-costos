@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Detalle Piscina · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css?v=2026.08.11.3">
-
+<link rel="stylesheet" href="../css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   .ficha-grid { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:0.875rem; margin-bottom:1.25rem; }
   .ficha-card { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:1rem 1.25rem; }
@@ -122,11 +121,21 @@
       </div>
 
       <!-- KPIs de costo (COSTO TOTAL) — movido debajo de la ficha -->
-      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(7,minmax(0,1fr))">
+      <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(auto-fit,minmax(150px,1fr))">
         <div class="kpi-costo-card" id="sem-total" style="border-left-color:var(--azul-claro)">
           <div class="kpi-costo-label">Costo total</div>
           <div class="kpi-costo-val" id="kc-total">—</div>
           <div class="kpi-costo-sub">acumulado corrida</div>
+        </div>
+        <div class="kpi-costo-card" style="border-left-color:#0E7C7B">
+          <div class="kpi-costo-label">$/Lb</div>
+          <div class="kpi-costo-val" style="color:#0E7C7B" id="kc-lb">—</div>
+          <div class="kpi-costo-sub">costo ÷ biomasa proy.</div>
+        </div>
+        <div class="kpi-costo-card" style="border-left-color:#16A085">
+          <div class="kpi-costo-label">Biomasa Proyectada</div>
+          <div class="kpi-costo-val" style="color:#16A085" id="kc-biomasa">—</div>
+          <div class="kpi-costo-sub" id="kc-biomasa-fecha">—</div>
         </div>
         <div class="kpi-costo-card" id="sem-hd">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -255,13 +264,12 @@
   </main>
 </div>
 
-<script src="../js/vendor/chart.umd.js?v=2026.08.11.3"></script>
-<script src="../js/vendor/xlsx.full.min.js?v=2026.08.11.3"></script>
-<script src="../js/vendor/supabase.min.js?v=2026.08.11.3"></script>
-<script src="../js/config.js?v=2026.08.11.3"></script>
-<script src="../js/shared.js?v=2026.08.11.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
 <script>
-let _sb;
+const _sb = getSupabaseClient();
 let _chartDet = null;
 
 const GRUPOS_FIJOS = [
@@ -286,22 +294,20 @@ COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
 const GRUPOS_INDIRECTOS = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos','Provisión CIF'];
 
 (async () => {
-  await window.APP_BUILD_READY;
-  _sb = getSupabaseClient();
   if (!await verificarSesion(_sb)) return;
   renderSidebar('');
 
   // Leer datos de navegación desde sessionStorage
   const raw = sessionStorage.getItem('det_nav');
-  if (!raw) { navigateWithBuild('dashboard.html'); return; }
+  if (!raw) { window.location.href = 'dashboard.html'; return; }
 
   let payload;
-  try { payload = JSON.parse(raw); } catch(e) { navigateWithBuild('dashboard.html'); return; }
+  try { payload = JSON.parse(raw); } catch(e) { window.location.href = 'dashboard.html'; return; }
 
   // Verificar expiración — válido 30 minutos
   if (!payload.ts || Date.now() - payload.ts > 30 * 60 * 1000) {
     sessionStorage.removeItem('det_nav');
-    navigateWithBuild('dashboard.html');
+    window.location.href = 'dashboard.html';
     return;
   }
 
@@ -310,7 +316,7 @@ const GRUPOS_INDIRECTOS = ['Mano de Obra','Mantenimiento','Depreciación','Otros
   const codigo        = payload.codigo     || '';
 
   if (!piscinaId || !codigoCorrida) {
-    navigateWithBuild('dashboard.html');
+    window.location.href = 'dashboard.html';
     return;
   }
 
@@ -489,7 +495,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
     .select('fecha_reporte').eq('empresa_id', emp)
     .order('fecha_reporte', { ascending: false }).limit(1).single();
   const { data: s } = await _sb.from('siembra_diaria')
-    .select('has, dias_totales, larvas_totales, balanceado_kg')
+    .select('has, dias_totales, larvas_totales, balanceado_kg, biomasa_proyectada_lbs')
     .eq('empresa_id', emp)
     .eq('piscina_id', piscinaId)
     .eq('fecha_reporte', uf2?.fecha_reporte)
@@ -500,6 +506,16 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const larvas = s?.larvas_totales || 0;
   const balKg  = s?.balanceado_kg || 0;
   const hd = totalCosto / has / dias;
+
+  // $/Lb = costo total ÷ biomasa proyectada (libras) · fecha de último muestreo desde ACOSUX
+  const biomasaLbs = Number(s?.biomasa_proyectada_lbs) || 0;
+  const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
+  let fechaMuestreo = null;
+  if (piscinaCod) {
+    const { data: gm } = await _sb.from('gramaje_muestreo')
+      .select('fecha_muestreo').eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
+    fechaMuestreo = gm?.fecha_muestreo || null;
+  }
 
   // Cargar presupuesto para semaforizar
   const anioAct = new Date().getFullYear();
@@ -557,6 +573,9 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const valKgDet       = balKg > 0 && costoBalancDet > 0 ? costoBalancDet / balKg : 0;
 
   document.getElementById('kc-total').textContent  = '$' + F.num(totalCosto, 2);
+  document.getElementById('kc-lb').textContent     = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
+  document.getElementById('kc-biomasa').textContent = biomasaLbs > 0 ? F.num(biomasaLbs, 0) + ' lb' : '—';
+  document.getElementById('kc-biomasa-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
   document.getElementById('kc-hd').textContent     = '$' + hd.toFixed(2);
   document.getElementById('kc-millar').textContent = valMillar > 0 ? '$' + valMillar.toFixed(2) : '—';
   document.getElementById('kc-kg').textContent     = valKgDet  > 0 ? '$' + valKgDet.toFixed(2)  : '—';

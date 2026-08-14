@@ -3,14 +3,13 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Dashboard Gerencial · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css?v=2026.08.11.3">
-
+<link rel="stylesheet" href="../css/main.css">
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.js"></script>
 <style>
   .kpi-grid-6 { display:grid; grid-template-columns:repeat(9,minmax(0,1fr)); gap:0.75rem; margin-bottom:1.25rem; }
   .kpi-mini { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:0.875rem 1rem; border-top:3px solid var(--gris-1); }
@@ -220,6 +219,7 @@
         <div class="kpi-mini c-azul"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">en proceso</div></div>
         <div class="kpi-mini c-verde"><div class="kpi-mini-label">Total Has</div><div class="kpi-mini-val" id="k-has">—</div><div class="kpi-mini-sub">hectáreas en cultivo</div></div>
         <div class="kpi-mini c-naranja"><div class="kpi-mini-label">Costo total</div><div class="kpi-mini-val" id="k-costo">—</div><div class="kpi-mini-sub">acumulado período</div></div>
+        <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb</div><div class="kpi-mini-val" style="color:#0E7C7B" id="k-lb">—</div><div class="kpi-mini-sub">costo ÷ biomasa proy.</div></div>
         <div class="kpi-mini c-morado"><div class="kpi-mini-label">$/Has/Día prom.</div><div class="kpi-mini-val" id="k-hd">—</div><div class="kpi-mini-sub">promedio ponderado</div></div>
         <div class="kpi-mini" style="border-top-color:#1E6FBF"><div class="kpi-mini-label">Directos $/Has/Día</div><div class="kpi-mini-val" style="color:#1E6FBF" id="k-dir">—</div><div class="kpi-mini-sub">4 grupos de costo</div></div>
         <div class="kpi-mini" style="border-top-color:#534AB7"><div class="kpi-mini-label">Indirectos $/Has/Día</div><div class="kpi-mini-val" style="color:#534AB7" id="k-ind">—</div><div class="kpi-mini-sub">8 grupos de costo</div></div>
@@ -356,13 +356,12 @@
   </div>
 </div>
 
-<script src="../js/vendor/chart.umd.js?v=2026.08.11.3"></script>
-<script src="../js/vendor/xlsx.full.min.js?v=2026.08.11.3"></script>
-<script src="../js/vendor/supabase.min.js?v=2026.08.11.3"></script>
-<script src="../js/config.js?v=2026.08.11.3"></script>
-<script src="../js/shared.js?v=2026.08.11.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
 <script>
-let _sb;
+const _sb = getSupabaseClient();
 let _siembra = [];
 let _costosPorCorrida  = {};
 let _costosPorGrupo    = {};
@@ -396,11 +395,8 @@ GRUPOS_FIJOS.forEach(g => { COLORES_GRUPO[g.grupo] = g.color; });
 COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
 
 (async () => {
-  try {
-    await window.APP_BUILD_READY;
-    _sb = getSupabaseClient();
-    if (!await verificarSesion(_sb)) return;
-    renderSidebar('dashboard');
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('dashboard');
 
   // Restaurar filtros si se viene del detalle piscina
   const filtrosGuardados = sessionStorage.getItem('dash_filtros');
@@ -417,36 +413,8 @@ COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
     } catch(e) {}
     sessionStorage.removeItem('dash_filtros');
   }
-    await cargarDashboard();
-  } catch (error) {
-    mostrarErrorDashboard(error);
-  } finally {
-    const loading = document.getElementById('loading-tabla');
-    if (loading) loading.style.display = 'none';
-  }
+  await cargarDashboard();
 })();
-
-function errorSupabase(contexto, error) {
-  if (!error) return;
-  const detalle = [error.message, error.details, error.hint].filter(Boolean).join(' · ');
-  throw new Error(`${contexto}: ${detalle || error.code || 'error desconocido'}`);
-}
-
-function mostrarErrorDashboard(error) {
-  const mensaje = error?.message || String(error) || 'Error desconocido';
-  const topbar = document.getElementById('topbar-sub');
-  if (topbar) topbar.textContent = 'Error al cargar el dashboard: ' + mensaje;
-
-  const tbody = document.getElementById('tabla-body');
-  if (!tbody) return;
-  const tr = document.createElement('tr');
-  const td = document.createElement('td');
-  td.colSpan = tbody.closest('table')?.querySelectorAll('thead th').length || 10;
-  td.style.cssText = 'padding:2.5rem;text-align:center;color:var(--rojo);white-space:normal';
-  td.textContent = 'No se pudo cargar el dashboard. ' + mensaje;
-  tr.appendChild(td);
-  tbody.replaceChildren(tr);
-}
 
 // Llama un RPC que devuelve TABLE, paginando de a 1000 (PostgREST corta en 1000).
 // OJO: en RPC el header Range NO offsetea (.range() de supabase-js no sirve);
@@ -456,93 +424,21 @@ async function rpcPaginado(fn, params, orderCols) {
   const key  = APP_CONFIG.supabase.anonKey;
   const order = (orderCols || []).map(c => c + '.asc').join(',');
   const lim = 1000;
-  const maxPaginas = 100;
-
-  let todo = [];
-  let offset = 0;
-  let pagina = 0;
-  let firmaAnterior = null;
-
+  let todo = [], offset = 0;
   while (true) {
-    if (pagina >= maxPaginas) {
-      throw new Error(`RPC ${fn} excedió el límite de ${maxPaginas} páginas.`);
-    }
-
-    const url = `${base}/rest/v1/rpc/${fn}?` +
-      (order ? `order=${order}&` : '') +
-      `offset=${offset}&limit=${lim}`;
-
-    const controller = new AbortController();
-    const timeoutId = window.setTimeout(() => controller.abort(), 20000);
-
-    let resp;
-
-    try {
-      resp = await fetch(url, {
-        method: 'POST',
-        headers: {
-          'apikey': key,
-          'Authorization': 'Bearer ' + key,
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify(params),
-        signal: controller.signal,
-      });
-    } catch (error) {
-      if (error?.name === 'AbortError') {
-        throw new Error(`RPC ${fn} excedió el tiempo máximo de 20 segundos.`);
-      }
-
-      throw new Error(
-        `RPC ${fn} no respondió: ${error?.message || String(error)}`
-      );
-    } finally {
-      window.clearTimeout(timeoutId);
-    }
-
-    const responseBody = await resp.text();
-
-    if (!resp.ok) {
-      throw new Error(
-        `RPC ${fn} falló (HTTP ${resp.status}): ` +
-        `${responseBody || resp.statusText}`
-      );
-    }
-
-    let data;
-
-    try {
-      data = responseBody ? JSON.parse(responseBody) : [];
-    } catch (error) {
-      throw new Error(
-        `RPC ${fn} devolvió una respuesta JSON inválida: ${responseBody}`
-      );
-    }
-
-    if (!Array.isArray(data)) {
-      throw new Error(
-        `RPC ${fn} devolvió un cuerpo inesperado: ${responseBody}`
-      );
-    }
-
-    if (data.length === 0) break;
-
-    if (firmaAnterior === responseBody) {
-      throw new Error(
-        `RPC ${fn} repitió la misma página. ` +
-        `La paginación se detuvo para evitar un ciclo infinito.`
-      );
-    }
-
-    firmaAnterior = responseBody;
+    const url = `${base}/rest/v1/rpc/${fn}?` + (order ? `order=${order}&` : '') + `offset=${offset}&limit=${lim}`;
+    const resp = await fetch(url, {
+      method: 'POST',
+      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      body: JSON.stringify(params),
+    });
+    if (!resp.ok) { console.error('Error RPC', fn, resp.status, await resp.text()); break; }
+    const data = await resp.json();
+    if (!Array.isArray(data) || data.length === 0) break;
     todo = todo.concat(data);
-    pagina += 1;
-
     if (data.length < lim) break;
-
     offset += lim;
   }
-
   return todo;
 }
 
@@ -550,10 +446,9 @@ async function cargarDashboard() {
   const emp = sessionStorage.getItem('dcp_empresa');
 
   // Fecha más reciente de siembra
-  const { data: uf, error: ufError } = await _sb.from('siembra_diaria')
+  const { data: uf } = await _sb.from('siembra_diaria')
     .select('fecha_reporte').eq('empresa_id', emp)
-    .order('fecha_reporte', { ascending: false }).limit(1).maybeSingle();
-  errorSupabase('siembra_diaria (fecha más reciente)', ufError);
+    .order('fecha_reporte', { ascending: false }).limit(1).single();
 
   if (!uf) {
     document.getElementById('topbar-sub').textContent = 'Sin datos importados';
@@ -570,10 +465,9 @@ async function cargarDashboard() {
   document.getElementById('topbar-sub').textContent = 'LUKMAR S.A. · ' + F.date(fechaSiembra);
 
   // Fecha más reciente de costos
-  const { data: ufc, error: ufcError } = await _sb.from('costos_piscina')
+  const { data: ufc } = await _sb.from('costos_piscina')
     .select('fecha_reporte').eq('empresa_id', emp)
-    .order('fecha_reporte', { ascending: false }).limit(1).maybeSingle();
-  errorSupabase('costos_piscina (fecha más reciente)', ufcError);
+    .order('fecha_reporte', { ascending: false }).limit(1).single();
 
   _fechaCostos = ufc?.fecha_reporte;
   const fechaCostos = _fechaCostos;
@@ -589,7 +483,12 @@ async function cargarDashboard() {
     .eq('piscinas.incluida', true)
     .order('dias_totales', { ascending: false });
 
-  errorSupabase('siembra_diaria (datos del dashboard)', siembraErr);
+  if (siembraErr) {
+    console.error('Error cargando siembra:', siembraErr.message);
+    document.getElementById('topbar-sub').textContent = 'Error cargando datos: ' + siembraErr.message;
+    document.getElementById('loading-tabla').style.display = 'none';
+    return;
+  }
   _siembra = siembra || [];
 
   // Cargar costos agrupados por corrida y por grupo global
@@ -638,12 +537,11 @@ async function cargarDashboard() {
 
   // Cargar presupuesto vigente
   const anioActual = new Date().getFullYear();
-  const { data: pres, error: presError } = await _sb.from('presupuesto_grupos')
+  const { data: pres } = await _sb.from('presupuesto_grupos')
     .select('grupo, presupuesto_monto, presupuesto_hd')
     .eq('empresa_id', emp)
     .eq('anio', anioActual)
     .eq('periodo', 'anual');
-  errorSupabase('presupuesto_grupos (presupuesto vigente)', presError);
   _presupuestoDB = {};
   (pres || []).forEach(p => { _presupuestoDB[p.grupo] = p; });
 
@@ -752,6 +650,9 @@ function actualizarKPIs() {
 
   const totalHas    = sf.reduce((a,r) => a + (r.has||0), 0);
   const totalCosto  = Object.values(costosCor).reduce((a,v) => a+v, 0);
+  // $/Lb = costo total ÷ biomasa proyectada total (libras, del resumen de siembra)
+  const totalBiomasa = sf.reduce((a,r) => a + (Number(r.biomasa_proyectada_lbs)||0), 0);
+  const costoLb      = totalBiomasa > 0 ? totalCosto / totalBiomasa : 0;
   const engorde     = _siembra.filter(r => !(r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const precria     = _siembra.filter(r =>  (r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const _umbralCosecha = parseInt(
@@ -793,6 +694,7 @@ function actualizarKPIs() {
   document.getElementById('k-total').textContent     = sf.length;
   document.getElementById('k-has').textContent       = totalHas.toFixed(1);
   document.getElementById('k-costo').textContent     = totalCosto > 0 ? F.abr(totalCosto) : '—';
+  document.getElementById('k-lb').textContent        = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
   document.getElementById('k-hd').textContent        = avgHD > 0 ? '$' + avgHD.toFixed(2) : '—';
   document.getElementById('k-dir').textContent       = hdDir > 0 ? '$' + hdDir.toFixed(2) : '—';
   document.getElementById('k-ind').textContent       = hdInd > 0 ? '$' + hdInd.toFixed(2) : '—';
@@ -1770,7 +1672,7 @@ function verDetalle(piscinaId, corridaId, codigo, corrida) {
     sembrada: _filtroSembrada,
     peso:     _filtroPeso,
   }));
-  navigateWithBuild('detalle_piscina.html');
+  window.location.href = 'detalle_piscina.html';
 }
 
 function ordenar(col) {
