@@ -216,7 +216,7 @@
 
       <!-- KPIs ejecutivos -->
       <div class="kpi-grid-6" id="kpi-row">
-        <div class="kpi-mini c-azul"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">Activas</div></div>
+        <div class="kpi-mini c-azul" onclick="irAPiscinas()" style="cursor:pointer" title="Ver piscinas en proceso"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">Activas ›</div></div>
         <div class="kpi-mini c-verde"><div class="kpi-mini-label">Total Has</div><div class="kpi-mini-val" id="k-has">—</div><div class="kpi-mini-sub">hectáreas en producción</div></div>
         <div class="kpi-mini c-naranja"><div class="kpi-mini-label">Costo total</div><div class="kpi-mini-val" id="k-costo">—</div><div class="kpi-mini-sub">acumulado período</div></div>
         <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb</div><div class="kpi-mini-val" style="color:#0E7C7B" id="k-lb">—</div><div class="kpi-mini-sub">costo ÷ biomasa a la fecha</div></div>
@@ -275,7 +275,7 @@
       </div>
 
       <!-- Tabla piscinas — ancho completo -->
-      <div class="tabla-card" style="position:relative;margin-bottom:1.25rem">
+      <div class="tabla-card" id="tabla-piscinas" style="position:relative;margin-bottom:1.25rem">
         <div id="loading-tabla" class="loading-overlay"><div class="spinner-lg"></div></div>
         <div class="tabla-header">
           <div><div class="tabla-title">Piscinas en proceso</div><div class="tabla-sub" id="tabla-sub">—</div></div>
@@ -1706,6 +1706,17 @@ function verDetalle(piscinaId, corridaId, codigo, corrida) {
     peso:     _filtroPeso,
   }));
   window.location.href = 'detalle_piscina.html';
+}
+
+// Ir a la sección "Piscinas en proceso" (click en la tarjeta Piscinas activas)
+function irAPiscinas() {
+  const el = document.getElementById('tabla-piscinas');
+  if (!el) return;
+  el.scrollIntoView({ behavior: 'smooth', block: 'start' });
+  const prev = el.style.boxShadow;
+  el.style.transition = 'box-shadow .3s';
+  el.style.boxShadow = '0 0 0 3px var(--azul-claro)';
+  setTimeout(() => { el.style.boxShadow = prev; }, 900);
 }
 
 function ordenar(col) {
