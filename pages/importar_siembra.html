@@ -226,6 +226,8 @@ function procesarArchivo(file) {
       const idxNaup   = headers.indexOf('Nauplio');
       const idxGramos = headers.indexOf('Gramos');
       const idxBiom   = headers.indexOf('Biomasa Proyectada');
+      const idxSobrev = headers.indexOf('Sobrev.');
+      const idxRaleo  = headers.indexOf('Raleo');
 
       // Procesar filas desde fila 8 en adelante
       _filas = [];
@@ -271,6 +273,8 @@ function procesarArchivo(file) {
           sembrada:       !!row[idxFech], // true si tiene fecha de siembra
           gramos:         row[idxGramos] ? Number(row[idxGramos]) : null,
           biomasa_proyectada_lbs: (idxBiom >= 0 && row[idxBiom]) ? Number(row[idxBiom]) : null,
+          sobrevivencia: (idxSobrev >= 0 && row[idxSobrev] != null && row[idxSobrev] !== '') ? Number(String(row[idxSobrev]).replace('%','')) : null,
+          raleo_lbs: (idxRaleo >= 0 && row[idxRaleo]) ? Number(row[idxRaleo]) : null,
           estado,
           piscina_id:     piscinaDB?.id || null,
         });
@@ -413,6 +417,8 @@ async function ejecutarImportacion() {
         sembrada:       r.sembrada       || false,
         gramos:         r.gramos         ?? null,
         biomasa_proyectada_lbs: r.biomasa_proyectada_lbs ?? null,
+        sobrevivencia: r.sobrevivencia ?? null,
+        raleo_lbs: r.raleo_lbs ?? null,
       }));
 
     if (registros.length === 0) throw new Error('No se pudieron vincular registros con corridas.');

@@ -125,18 +125,23 @@
           <div class="kpi-costo-sub">costo ÷ biomasa a la fecha</div>
         </div>
         <div class="kpi-costo-card" style="border-left-color:#16A085">
-          <div class="kpi-costo-label">Biomasa a la Fecha</div>
+          <div class="kpi-costo-label">Biomasa a la Fecha <span id="kc-raleo-flag" style="display:none;font-size:8px;background:#E74C3C;color:#fff;padding:1px 5px;border-radius:99px;margin-left:3px;vertical-align:middle">RALEO</span></div>
           <div class="kpi-costo-val" style="color:#16A085" id="kc-biomasa">—</div>
           <div class="kpi-costo-sub" id="kc-biomasa-fecha">—</div>
+          <span id="f-larvas" style="display:none"></span>
         </div>
         <div class="kpi-costo-card" style="border-left-color:#8E44AD">
           <div class="kpi-costo-label">Peso</div>
           <div class="kpi-costo-val" style="color:#8E44AD" id="kc-peso">—</div>
           <div class="kpi-costo-sub" id="kc-peso-fecha">—</div>
         </div>
+        <div class="kpi-costo-card" style="border-left-color:#D68910">
+          <div class="kpi-costo-label">Sobrevivencia</div>
+          <div class="kpi-costo-val" style="color:#D68910" id="kc-sobrev">—</div>
+          <div class="kpi-costo-sub" id="kc-sobrev-fecha">—</div>
+        </div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Hectáreas</div><div class="kpi-costo-val" id="f-has">—</div><div class="kpi-costo-sub">en cultivo</div></div>
         <div class="kpi-costo-card"><div class="kpi-costo-label">Días de cultivo</div><div class="kpi-costo-val" id="f-dias">—</div><div class="kpi-costo-sub" id="f-dias-sub">—</div></div>
-        <div class="kpi-costo-card"><div class="kpi-costo-label">Larvas sembradas</div><div class="kpi-costo-val" id="f-larvas">—</div><div class="kpi-costo-sub">unidades</div></div>
       </div>
 
       <!-- Fila 2 (8): Fecha Siembra · Kg Balanceado · Costo $/Has/Día · Directos · Indirectos · $/Millar · $/Kg · Insumos -->
@@ -504,7 +509,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
     .select('fecha_reporte').eq('empresa_id', emp)
     .order('fecha_reporte', { ascending: false }).limit(1).single();
   const { data: s } = await _sb.from('siembra_diaria')
-    .select('has, dias_totales, larvas_totales, balanceado_kg, biomasa_proyectada_lbs')
+    .select('has, dias_totales, larvas_totales, balanceado_kg, gramos, biomasa_proyectada_lbs, sobrevivencia, raleo_lbs')
     .eq('empresa_id', emp)
     .eq('piscina_id', piscinaId)
     .eq('fecha_reporte', uf2?.fecha_reporte)
@@ -516,8 +521,14 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const balKg  = s?.balanceado_kg || 0;
   const hd = totalCosto / has / dias;
 
-  // $/Lb = costo total ÷ biomasa proyectada (libras) · fecha de último muestreo desde ACOSUX
-  const biomasaLbs = Number(s?.biomasa_proyectada_lbs) || 0;
+  // Sobrevivencia (normaliza fracción 0.88 o % 88) · peso · raleo
+  const gramosDet = Number(s?.gramos) || 0;
+  const sobrevRaw = Number(s?.sobrevivencia);
+  const sobrevPct = isFinite(sobrevRaw) && s?.sobrevivencia != null ? (sobrevRaw <= 1.5 ? sobrevRaw * 100 : sobrevRaw) : null;
+  const raleoLbs  = Number(s?.raleo_lbs) || 0;
+  // Biomasa a la fecha CALCULADA por nosotros = larvas × sobrevivencia × peso ÷ 453.592
+  //   (consistente con las tarjetas Sobrevivencia/Peso; puede diferir ~0.5% del valor ACOSUX por redondeo y no descuenta raleo)
+  const biomasaLbs = (larvas > 0 && sobrevPct != null && gramosDet > 0) ? larvas * (sobrevPct/100) * gramosDet / 453.592 : 0;
   const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
   let fechaMuestreo = null, pesoMuestreo = 0;
   if (piscinaCod) {
@@ -585,9 +596,14 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   document.getElementById('kc-total').textContent  = '$' + F.num(totalCosto, 2);
   document.getElementById('kc-lb').textContent     = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
   document.getElementById('kc-biomasa').textContent = biomasaLbs > 0 ? F.num(biomasaLbs, 0) + ' lb' : '—';
-  document.getElementById('kc-biomasa-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
+  document.getElementById('kc-biomasa-fecha').textContent =
+    (fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo') +
+    (larvas ? ' · larvas: ' + (larvas/1e6).toFixed(2) + 'M' : '');
   document.getElementById('kc-peso').textContent = pesoMuestreo > 0 ? F.num(pesoMuestreo, 2) + ' g' : '—';
   document.getElementById('kc-peso-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
+  document.getElementById('kc-sobrev').textContent = sobrevPct != null ? sobrevPct.toFixed(0) + '%' : '—';
+  document.getElementById('kc-sobrev-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
+  const _rf = document.getElementById('kc-raleo-flag'); if (_rf) _rf.style.display = raleoLbs > 0 ? '' : 'none';
   document.getElementById('kc-hd').textContent     = '$' + hd.toFixed(2);
   document.getElementById('kc-millar').textContent = valMillar > 0 ? '$' + valMillar.toFixed(2) : '—';
   document.getElementById('kc-kg').textContent     = valKgDet  > 0 ? '$' + valKgDet.toFixed(2)  : '—';
