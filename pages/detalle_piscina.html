@@ -521,22 +521,25 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const balKg  = s?.balanceado_kg || 0;
   const hd = totalCosto / has / dias;
 
-  // Sobrevivencia (normaliza fracción 0.88 o % 88) · peso · raleo
-  const gramosDet = Number(s?.gramos) || 0;
-  const sobrevRaw = Number(s?.sobrevivencia);
-  const sobrevPct = isFinite(sobrevRaw) && s?.sobrevivencia != null ? (sobrevRaw <= 1.5 ? sobrevRaw * 100 : sobrevRaw) : null;
-  const raleoLbs  = Number(s?.raleo_lbs) || 0;
-  // Biomasa a la fecha CALCULADA por nosotros = larvas × sobrevivencia × peso ÷ 453.592
-  //   (consistente con las tarjetas Sobrevivencia/Peso; puede diferir ~0.5% del valor ACOSUX por redondeo y no descuenta raleo)
-  const biomasaLbs = (larvas > 0 && sobrevPct != null && gramosDet > 0) ? larvas * (sobrevPct/100) * gramosDet / 453.592 : 0;
-  const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
-  let fechaMuestreo = null, pesoMuestreo = 0;
+  // Datos del ÚLTIMO MUESTREO (gramaje ACOSUX) — sobrevivencia REAL, peso y larvas
+  let fechaMuestreo = null, pesoMuestreo = 0, sobrevMuestreo = null, larvasMuestreo = 0;
   if (piscinaCod) {
     const { data: gm } = await _sb.from('gramaje_muestreo')
-      .select('fecha_muestreo, peso_gramos').eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
-    fechaMuestreo = gm?.fecha_muestreo || null;
-    pesoMuestreo  = Number(gm?.peso_gramos) || 0;
+      .select('fecha_muestreo, peso_gramos, sobrevivencia, cantidad_larvas')
+      .eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
+    fechaMuestreo  = gm?.fecha_muestreo || null;
+    pesoMuestreo   = Number(gm?.peso_gramos) || 0;
+    sobrevMuestreo = gm?.sobrevivencia != null ? Number(gm.sobrevivencia) : null;
+    larvasMuestreo = Number(gm?.cantidad_larvas) || 0;
   }
+  // Sobrevivencia REAL del muestreo (gramaje), normalizada a % · raleo (del resumen)
+  const sobrevPct = (sobrevMuestreo != null) ? (sobrevMuestreo <= 1.5 ? sobrevMuestreo * 100 : sobrevMuestreo) : null;
+  const raleoLbs  = Number(s?.raleo_lbs) || 0;
+  // Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso(muestreo) ÷ 453.592
+  //   Usa la sobrevivencia del gramaje, NO la del resumen (que viene inflada).
+  const larvasBio  = larvasMuestreo || larvas;
+  const biomasaLbs = (larvasBio > 0 && sobrevPct != null && pesoMuestreo > 0) ? larvasBio * (sobrevPct/100) * pesoMuestreo / 453.592 : 0;
+  const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
 
   // Cargar presupuesto para semaforizar
   const anioAct = new Date().getFullYear();
@@ -598,7 +601,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   document.getElementById('kc-biomasa').textContent = biomasaLbs > 0 ? F.num(biomasaLbs, 0) + ' lb' : '—';
   document.getElementById('kc-biomasa-fecha').textContent =
     (fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo') +
-    (larvas ? ' · larvas: ' + (larvas/1e6).toFixed(2) + 'M' : '');
+    (larvasBio ? ' · larvas: ' + (larvasBio/1e6).toFixed(2) + 'M' : '');
   document.getElementById('kc-peso').textContent = pesoMuestreo > 0 ? F.num(pesoMuestreo, 2) + ' g' : '—';
   document.getElementById('kc-peso-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
   document.getElementById('kc-sobrev').textContent = sobrevPct != null ? sobrevPct.toFixed(0) + '%' : '—';

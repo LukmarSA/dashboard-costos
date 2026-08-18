@@ -554,6 +554,13 @@ async function cargarDashboard() {
   _presupuestoDB = {};
   (pres || []).forEach(p => { _presupuestoDB[p.grupo] = p; });
 
+  // Gramaje (último muestreo por piscina): sobrevivencia REAL, peso y larvas → biomasa
+  const { data: gramRows } = await _sb.from('gramaje_muestreo')
+    .select('piscina_codigo, sobrevivencia, peso_gramos, cantidad_larvas')
+    .eq('empresa_id', emp);
+  _gramaje = {};
+  (gramRows || []).forEach(g => { _gramaje[g.piscina_codigo] = { sobrev: g.sobrevivencia, peso: g.peso_gramos, larvas: g.cantidad_larvas }; });
+
   document.getElementById('loading-tabla').style.display = 'none';
   actualizarKPIs();
   renderRubros();
@@ -652,15 +659,18 @@ function costosPorCorridaFiltrado() {
   return result;
 }
 
-// Biomasa a la fecha CALCULADA = larvas × sobrevivencia × peso(gramos) ÷ 453.592
-// (normaliza sobrevivencia: fracción 0.88 o % 88). No la tomamos del reporte, la calculamos.
+// Gramaje (último muestreo por piscina): sobrevivencia REAL, peso y larvas
+let _gramaje = {};   // piscina_codigo -> { sobrev, peso, larvas }
+// Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso ÷ 453.592
+// Usa la sobrevivencia del gramaje/muestreo, NO la del resumen (que viene inflada).
 function biomasaCalc(r) {
-  const larv = Number(r.larvas_totales) || 0;
-  const gr   = Number(r.gramos) || 0;
-  const sv   = Number(r.sobrevivencia);
-  if (!larv || !gr || !isFinite(sv) || r.sobrevivencia == null) return 0;
+  const cod = r.piscinas?.codigo;
+  const g = cod ? _gramaje[cod] : null;
+  if (!g) return 0;
+  const larv = Number(g.larvas) || 0, peso = Number(g.peso) || 0, sv = Number(g.sobrev);
+  if (!larv || !peso || !isFinite(sv)) return 0;
   const frac = sv <= 1.5 ? sv : sv / 100;
-  return larv * frac * gr / 453.592;
+  return larv * frac * peso / 453.592;
 }
 
 function actualizarKPIs() {
