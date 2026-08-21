@@ -243,9 +243,9 @@
       <div id="panel-muestreo" style="display:none;margin-bottom:1.25rem;background:#FFEBEE;border:1.5px solid #C62828;border-left:5px solid #C62828;border-radius:var(--r);padding:12px 16px">
         <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
           <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#C62828" stroke-width="2"><path d="M8 2L14 13H2L8 2z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12" r="0.5" fill="#C62828"/></svg>
-          <span style="font-size:14px;font-weight:800;color:#C62828;letter-spacing:.3px">REQUIEREN MUESTREO DE MORTALIDAD</span>
+          <span style="font-size:14px;font-weight:800;color:#C62828;letter-spacing:.3px">PISCINAS QUE REQUIEREN MUESTREO</span>
           <span id="muestreo-count" style="background:#C62828;color:white;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px"></span>
-          <span style="font-size:11px;color:#8a3a3a">Sobrevivencia sin actualizar en ACOSUX → biomasa y $/Lb no confiables en estas piscinas</span>
+          <span style="font-size:11px;color:#8a3a3a">Maduras sin muestreo vigente o con sobrevivencia sin actualizar → biomasa/$Lb no confiable (excluidas del cálculo)</span>
         </div>
         <div id="muestreo-body" style="display:flex;flex-wrap:wrap;gap:8px"></div>
       </div>
@@ -1112,34 +1112,44 @@ function _fCorta(iso) {
   const d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z');
   return isNaN(d) ? String(iso) : (String(d.getUTCDate()).padStart(2, '0') + '-' + _MESABR[d.getUTCMonth()]);
 }
+// Devuelve la lista de piscinas cuya BIOMASA no se está contando (excluidas del $/Lb),
+// con el motivo. Reutilizable por el dashboard y el detalle.
+// Motivo por el que una piscina MADURA queda sin biomasa confiable (excluida del $/Lb).
+// Las resembradas jóvenes NO se listan (transitorias). Un gramaje de corrida anterior
+// se trata como si no hubiera muestreo vigente.
+function motivoBiomasaExcluida(r) {
+  if ((r.corridas?.codigo_corrida || '').includes('-PC-')) return null;   // no precría
+  const edad = Number(r.edad_dias) || 0;
+  if (edad <= _MUESTREO_EDAD_MIN) return null;                            // solo maduras
+  const cod = r.piscinas?.codigo || '—';
+  let g = cod ? _gramaje[cod] : null;
+  if (g && gramajeEsViejo(r, g)) g = null;                               // gramaje de corrida anterior = sin muestreo vigente
+  if (!g) return { cod, edad, tipo: 'SIN' };
+  if (sobrevSospechosa(r, g)) {
+    const sv = Number(g.sobrev);
+    return { cod, edad, tipo: 'REVISAR', sv: (sv <= 1.5 ? sv * 100 : sv), fecha: g.fmuestreo };
+  }
+  return null;
+}
+function _chipMuestreo(f) {
+  if (f.tipo === 'SIN')
+    return `<span style="background:#C62828;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">`
+      + `${f.cod} · día ${f.edad} · SIN MUESTREO</span>`;
+  // REVISAR
+  return `<span style="background:#fff;border:1px solid #C62828;border-radius:6px;padding:3px 10px;font-size:12px;color:#8a1c1c">`
+    + `<b>${f.cod}</b> · día ${f.edad} · sobrev ${f.sv.toFixed(0)}% · muestreo ${_fCorta(f.fecha)}</span>`;
+}
 function renderMuestreo() {
   const panel = document.getElementById('panel-muestreo');
   if (!panel) return;
-  const flags = [];
-  siembraFiltrada().forEach(r => {
-    const esPrecria = (r.corridas?.codigo_corrida || '').includes('-PC-');
-    const edad = Number(r.edad_dias) || 0;
-    if (esPrecria || edad <= _MUESTREO_EDAD_MIN) return;   // solo engorde maduro
-    const cod = r.piscinas?.codigo || '—';
-    const g = cod ? _gramaje[cod] : null;
-    if (!g || gramajeEsViejo(r, g)) { flags.push({ cod, edad, tipo: 'SIN' }); return; }
-    if (sobrevSospechosa(r, g)) {
-      const sv = Number(g.sobrev);
-      flags.push({ cod, edad, sv: (sv <= 1.5 ? sv * 100 : sv), fecha: g.fmuestreo, tipo: 'REVISAR' });
-    }
-  });
-  if (!flags.length) { panel.style.display = 'none'; return; }
+  const items = [];
+  siembraFiltrada().forEach(r => { const m = motivoBiomasaExcluida(r); if (m) items.push(m); });
+  if (!items.length) { panel.style.display = 'none'; return; }
   panel.style.display = '';
-  document.getElementById('muestreo-count').textContent = flags.length;
-  // SIN MUESTREO primero, luego por edad desc
-  flags.sort((a, b) => (a.tipo !== b.tipo) ? (a.tipo === 'SIN' ? -1 : 1) : (b.edad - a.edad));
-  document.getElementById('muestreo-body').innerHTML = flags.map(f => {
-    if (f.tipo === 'SIN')
-      return `<span style="background:#C62828;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">`
-        + `${f.cod} · día ${f.edad} · SIN MUESTREO</span>`;
-    return `<span style="background:#fff;border:1px solid #C62828;border-radius:6px;padding:3px 10px;font-size:12px;color:#8a1c1c">`
-      + `<b>${f.cod}</b> · día ${f.edad} · sobrev ${f.sv.toFixed(0)}% · últ. muestreo ${_fCorta(f.fecha)}</span>`;
-  }).join('');
+  document.getElementById('muestreo-count').textContent = items.length;
+  const orden = { SIN: 0, REVISAR: 1 };
+  items.sort((a, b) => (orden[a.tipo] - orden[b.tipo]) || (b.edad - a.edad));
+  document.getElementById('muestreo-body').innerHTML = items.map(_chipMuestreo).join('');
 }
 
 function renderAlertas() {

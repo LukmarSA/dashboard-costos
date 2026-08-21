@@ -110,6 +110,11 @@
         <span id="bc-piscina">—</span>
       </div>
 
+      <!-- RED FLAG: biomasa/$Lb no confiable para esta piscina -->
+      <div id="detalle-flag" style="display:none;margin-top:1rem;background:#FFEBEE;border:1.5px solid #C62828;border-left:5px solid #C62828;border-radius:8px;padding:10px 14px">
+        <span id="detalle-flag-txt" style="color:#8a1c1c;font-weight:700;font-size:13px"></span>
+      </div>
+
       <!-- Tarjetas: 2 filas de 8 (estilo unificado) -->
       <!-- Fila 1 (8): Piscina · Costo Total · $/Lb · Biomasa · Peso · Hectáreas · Días · Larvas -->
       <div class="kpi-costos" id="kpi-costos" style="margin-top:1.25rem;grid-template-columns:repeat(8,minmax(0,1fr))">
@@ -525,6 +530,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   // Solo si el muestreo es de la CORRIDA VIGENTE: si es anterior a la fecha de siembra
   // de la corrida actual, pertenece a una corrida ya cosechada (piscina resembrada) → se ignora.
   let fechaMuestreo = null, pesoMuestreo = 0, sobrevMuestreo = null, larvasMuestreo = 0;
+  let gramajeViejoFecha = null;   // fecha del muestreo de la corrida anterior (si resembrada)
   if (piscinaCod) {
     const { data: gm } = await _sb.from('gramaje_muestreo')
       .select('fecha_muestreo, peso_gramos, sobrevivencia, cantidad_larvas')
@@ -548,6 +554,8 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
       pesoMuestreo   = Number(gm.peso_gramos) || 0;
       sobrevMuestreo = gm.sobrevivencia != null ? Number(gm.sobrevivencia) : null;
       larvasMuestreo = Number(gm.cantidad_larvas) || 0;
+    } else if (gm && staleGramaje) {
+      gramajeViejoFecha = gm.fecha_muestreo || null;
     }
   }
   // Sobrevivencia REAL del muestreo (gramaje), normalizada a % · raleo (del resumen)
@@ -563,6 +571,24 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const larvasBio  = larvasMuestreo || larvas;
   const biomasaLbs = (!sobrevSospe && larvasBio > 0 && sobrevPct != null && pesoMuestreo > 0) ? larvasBio * (sobrevPct/100) * pesoMuestreo / 453.592 : 0;
   const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
+
+  // RED FLAG del detalle: por qué la biomasa/$Lb de ESTA piscina no es confiable (mismo criterio que el gerencial)
+  const _edadFlag = Number(s?.edad_dias) || 0;
+  const _esEngorde = !(codigoCorrida || '').includes('-PC-');
+  // Solo se marca a las MADURAS (las resembradas jóvenes no se alarman). Un gramaje de
+  // corrida anterior deja fechaMuestreo=null → cae en "SIN MUESTREO" si la piscina es madura.
+  let _flagTxt = '';
+  if (_esEngorde && _edadFlag > 35) {
+    if (sobrevSospe)
+      _flagTxt = `Sobrevivencia sin actualizar en ACOSUX (${sobrevPct.toFixed(0)}% a día ${_edadFlag}) → biomasa y $/Lb no confiables. Requiere muestreo de mortalidad.`;
+    else if (fechaMuestreo == null)
+      _flagTxt = `SIN MUESTREO vigente (día ${_edadFlag}) → no se puede calcular biomasa/$Lb. Requiere muestreo.`;
+  }
+  const _df = document.getElementById('detalle-flag');
+  if (_df) {
+    if (_flagTxt) { document.getElementById('detalle-flag-txt').innerHTML = '⚠ ' + _flagTxt; _df.style.display = ''; }
+    else _df.style.display = 'none';
+  }
 
   // Cargar presupuesto para semaforizar
   const anioAct = new Date().getFullYear();
