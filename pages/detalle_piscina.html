@@ -269,9 +269,12 @@
             </tbody>
           </table>
         </div>
+        <div style="padding:0.6rem 1.25rem;border-top:1px solid var(--gris-1);font-size:11px;color:var(--gris-3);line-height:1.5">
+          <b style="color:#0E7C7B">$/Lb</b> = costo ÷ biomasa a la fecha (con la sobrevivencia real del muestreo). Se calcula <b>solo con peso ≥ 3 g</b>: por debajo, la biomasa es ínfima y el $/Lb se dispara (no es representativo) → se muestra <b>“—”</b>. Tampoco se calcula si la piscina está resembrada o con la sobrevivencia sin actualizar.
+        </div>
       </div>
 
-      
+
 
     </div>
     <footer class="app-footer">
@@ -570,7 +573,10 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   //   Usa la sobrevivencia del gramaje, NO la del resumen (que viene inflada).
   const larvasBio  = larvasMuestreo || larvas;
   const biomasaLbs = (!sobrevSospe && larvasBio > 0 && sobrevPct != null && pesoMuestreo > 0) ? larvasBio * (sobrevPct/100) * pesoMuestreo / 453.592 : 0;
-  const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
+  // El $/Lb solo es representativo con peso ≥ 3 g (en piscinas más jóvenes la biomasa es
+  // ínfima y el $/Lb se dispara). Se usa esta biomasa para TODO $/Lb; la tarjeta Biomasa sí se muestra.
+  const biomasaParaLb = (pesoMuestreo >= 3) ? biomasaLbs : 0;
+  const costoLb    = biomasaParaLb > 0 ? totalCosto / biomasaParaLb : 0;
 
   // RED FLAG del detalle: por qué la biomasa/$Lb de ESTA piscina no es confiable (mismo criterio que el gerencial)
   const _edadFlag = Number(s?.edad_dias) || 0;
@@ -728,7 +734,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
         <span style="font-weight:600">${pct}%</span>
         ${sinDatos?'':' <div class="barra-wrap"><div class="barra" style="width:'+pct+'%;background:'+color+'"></div></div>'}
       </td>
-      <td class="right" style="font-weight:600;color:#0E7C7B">${(biomasaLbs>0 && data.total>0) ? '$'+(data.total/biomasaLbs).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
+      <td class="right" style="font-weight:600;color:#0E7C7B">${(biomasaParaLb>0 && data.total>0) ? '$'+(data.total/biomasaParaLb).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
       <td class="right" style="font-size:10px;color:var(--gris-3)">${unidad}<br><span style="font-size:12px;color:var(--azul-oscuro);font-weight:600">${displayHD}</span></td>
     </tr>`;
 
@@ -743,7 +749,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
         <td class="right">$${F.num(p.valor,2)}</td>
         <td class="right">${pCantCell}</td>
         <td class="right">${pct2}%</td>
-        <td class="right" style="color:#0E7C7B">${biomasaLbs>0 ? '$'+(p.valor/biomasaLbs).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
+        <td class="right" style="color:#0E7C7B">${biomasaParaLb>0 ? '$'+(p.valor/biomasaParaLb).toFixed(2) : '<span style="color:var(--gris-2)">—</span>'}</td>
         <td class="right">$${(p.valor/has/dias).toFixed(2)}</td>
       </tr>`;
     });

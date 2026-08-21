@@ -332,6 +332,9 @@
           <span><span class="badge badge-amarillo" style="font-size:9px">Cosecha próxima</span> 61–90</span>
           <span><span class="badge badge-rojo" style="font-size:9px">Cosecha urgente</span> &gt; 90</span>
         </div>
+        <div style="padding:0.6rem 1.25rem;border-top:1px solid var(--gris-1);font-size:11px;color:var(--gris-3);line-height:1.5">
+          <b style="color:#0E7C7B">$/Lb</b> = costo ÷ biomasa a la fecha (con la sobrevivencia real del muestreo). Se calcula <b>solo con peso ≥ 3 g</b>: por debajo, la biomasa es ínfima y el $/Lb se dispara (no es representativo) → se muestra <b>“—”</b>. Tampoco se calcula en piscinas resembradas ni con sobrevivencia sin actualizar.
+        </div>
       </div>
 
     </div>
@@ -738,6 +741,13 @@ function pesoVigente(r) {
   const p = Number(g.peso);
   return (isFinite(p) && p > 0) ? p : null;
 }
+// El $/Lb solo es representativo con peso suficiente: en piscinas recién sembradas
+// (peso < 3 g) la biomasa es ínfima y el $/Lb se dispara (costo ÷ ~0), así que no se muestra.
+const _LB_PESO_MIN = 3;   // gramos
+function lbValido(r) {
+  const p = pesoVigente(r);
+  return p != null && p >= _LB_PESO_MIN;
+}
 
 function actualizarKPIs() {
   const sf          = siembraFiltrada();
@@ -764,7 +774,7 @@ function actualizarKPIs() {
       const p = pesoVigente(r);
       if (p === null || !b.test(p)) return;
       const bm = biomasaCalc(r);
-      if (bm > 0) { bio += bm; cost += (costosCor[r.corrida_id] || 0); }
+      if (bm > 0 && lbValido(r)) { bio += bm; cost += (costosCor[r.corrida_id] || 0); }   // peso ≥ 3 g
     });
     return { lbl: b.lbl, key: b.key, val: bio > 0 ? cost / bio : 0 };
   });
@@ -1810,7 +1820,7 @@ function renderTabla(lista) {
     const has       = r.has || 1;
     const hd        = costo > 0 && dias > 0 ? costo / has / dias : 0;
     const biomasa   = biomasaCalc(r);
-    const lb        = (costo > 0 && biomasa > 0) ? costo / biomasa : 0;
+    const lb        = (costo > 0 && biomasa > 0 && lbValido(r)) ? costo / biomasa : 0;   // — si peso < 3 g
     const sem       = semaforoDias(esPrecria ? 0 : dias);
     const piscinaId = r.piscina_id || r.piscinas?.id || '';
     const codigoPis = r.piscinas?.codigo || '';
@@ -1874,7 +1884,7 @@ function getVal(r, col) {
     case 'has':    return r.has || 0;
     case 'costo':  return _costosPorCorrida[cId] || 0;
     case 'hd':     { const c=_costosPorCorrida[cId]||0, d=r.dias_totales||1, h=r.has||1; return c>0?c/h/d:0; }
-    case 'lb':     { const c=_costosPorCorrida[cId]||0, b=biomasaCalc(r); return (c>0&&b>0)?c/b:0; }
+    case 'lb':     { if(!lbValido(r)) return 0; const c=_costosPorCorrida[cId]||0, b=biomasaCalc(r); return (c>0&&b>0)?c/b:0; }
     default: return 0;
   }
 }
