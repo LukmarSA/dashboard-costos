@@ -219,7 +219,7 @@
         <div class="kpi-mini c-azul" onclick="irAPiscinas()" style="cursor:pointer" title="Ver piscinas en proceso"><div class="kpi-mini-label">Piscinas</div><div class="kpi-mini-val" id="k-total">—</div><div class="kpi-mini-sub">Activas ›</div></div>
         <div class="kpi-mini c-verde"><div class="kpi-mini-label">Total Has</div><div class="kpi-mini-val" id="k-has">—</div><div class="kpi-mini-sub">hectáreas en producción</div></div>
         <div class="kpi-mini c-naranja"><div class="kpi-mini-label">Costo total</div><div class="kpi-mini-val" id="k-costo">—</div><div class="kpi-mini-sub">acumulado período</div></div>
-        <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb</div><div class="kpi-mini-val" style="color:#0E7C7B" id="k-lb">—</div><div class="kpi-mini-sub">costo ÷ biomasa a la fecha</div></div>
+        <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb por gramaje</div><div id="k-lb-grupos" style="color:#0E7C7B;font-size:13px;line-height:1.55;font-weight:700;margin:2px 0">—</div><div class="kpi-mini-sub">costo ÷ biomasa a la fecha</div></div>
         <div class="kpi-mini c-morado"><div class="kpi-mini-label">$/Has/Día prom.</div><div class="kpi-mini-val" id="k-hd">—</div><div class="kpi-mini-sub">promedio ponderado</div></div>
         <div class="kpi-mini" style="border-top-color:#1E6FBF"><div class="kpi-mini-label">Directos $/Has/Día</div><div class="kpi-mini-val" style="color:#1E6FBF" id="k-dir">—</div><div class="kpi-mini-sub">4 grupos de costo</div></div>
         <div class="kpi-mini" style="border-top-color:#534AB7"><div class="kpi-mini-label">Indirectos $/Has/Día</div><div class="kpi-mini-val" style="color:#534AB7" id="k-ind">—</div><div class="kpi-mini-sub">8 grupos de costo</div></div>
@@ -605,8 +605,10 @@ function setFiltroTipo(tipo) {
   actualizarTodo();
 }
 
-// Obtener siembra filtrada por tipo y sembrada
-function siembraFiltrada() {
+// Obtener siembra filtrada por tipo y sembrada.
+// ignorePeso=true: aplica tipo+sembrada pero NO el filtro de peso (para calcular
+// los 4 grupos de gramaje respetando siempre los demás filtros).
+function siembraFiltrada(ignorePeso) {
   const resultado = _siembra.filter(r => {
     const corrida   = r.corridas?.codigo_corrida || '';
     const esPrecria = corrida.includes('-PC-');
@@ -618,10 +620,12 @@ function siembraFiltrada() {
     // Filtro sembrada
     if (_filtroSembrada === 'sembrada'    && !sembrada) return false;
     if (_filtroSembrada === 'no_sembrada' && sembrada)  return false;
-    // Filtro peso
-    if (_filtroPeso) {
-      const g = r.gramos ?? null;
-      if (g === null) return false; // sin dato de peso, excluir
+    // Filtro peso — usa el peso del gramaje VIGENTE (misma fuente que la biomasa/$Lb),
+    // no r.gramos del resumen, para que los grupos particionen exactamente las piscinas
+    // con biomasa y "Todos" reconcilie con los 4 grupos.
+    if (!ignorePeso && _filtroPeso) {
+      const g = pesoVigente(r);
+      if (g === null) return false; // sin muestreo vigente, excluir
       if (_filtroPeso === '0-10'  && !(g >= 0  && g <= 10)) return false;
       if (_filtroPeso === '10-20' && !(g >  10 && g <= 20)) return false;
       if (_filtroPeso === '20-30' && !(g >  20 && g <= 30)) return false;
@@ -679,6 +683,19 @@ function biomasaCalc(r) {
   return larv * frac * peso / 453.592;
 }
 
+// Peso (g) del muestreo VIGENTE de la piscina, o null. Mismo criterio de corrida que
+// biomasaCalc: descarta el gramaje de una corrida anterior (piscina resembrada).
+function pesoVigente(r) {
+  const cod = r.piscinas?.codigo;
+  const g = cod ? _gramaje[cod] : null;
+  if (!g) return null;
+  const fSiembra  = (r.corridas?.fecha_siembra || '').slice(0, 10);
+  const fMuestreo = (g.fmuestreo || '').slice(0, 10);
+  if (fSiembra && fMuestreo && fMuestreo < fSiembra) return null;
+  const p = Number(g.peso);
+  return (isFinite(p) && p > 0) ? p : null;
+}
+
 function actualizarKPIs() {
   const sf          = siembraFiltrada();
   const costosCor   = costosPorCorridaFiltrado();
@@ -686,15 +703,28 @@ function actualizarKPIs() {
 
   const totalHas    = sf.reduce((a,r) => a + (r.has||0), 0);
   const totalCosto  = Object.values(costosCor).reduce((a,v) => a+v, 0);
-  // $/Lb = costo ÷ biomasa a la fecha, SOLO de piscinas con biomasa (muestreo de la
-  // corrida vigente). Las recién sembradas sin muestreo aportan costo pero 0 biomasa,
-  // así que se excluyen del ratio (si no, hundirían el $/Lb). Reconciliá con los grupos de peso.
-  let totalBiomasa = 0, costoConBio = 0;
-  sf.forEach(r => {
-    const b = biomasaCalc(r);
-    if (b > 0) { totalBiomasa += b; costoConBio += (costosCor[r.corrida_id] || 0); }
+  // $/Lb POR RANGO DE GRAMAJE (costo ÷ biomasa a la fecha, solo piscinas con biomasa
+  // del muestreo vigente). Se calcula sobre el set con tipo+sembrada aplicados pero SIN
+  // el filtro de peso, para mostrar siempre los 4 grupos; cada piscina se ubica por el
+  // peso del gramaje vigente (misma fuente que la biomasa). Al activar un filtro de peso,
+  // abajo se muestra solo el grupo seleccionado. Evita el número mezclado entre etapas.
+  const sfBaseLb = siembraFiltrada(true);
+  const LB_BUCKETS = [
+    { key:'0-10',  lbl:'0-10g',   test:p => p >= 0 && p <= 10 },
+    { key:'10-20', lbl:'&gt;10-20g', test:p => p > 10 && p <= 20 },
+    { key:'20-30', lbl:'&gt;20-30g', test:p => p > 20 && p <= 30 },
+    { key:'30+',   lbl:'&gt;30g',    test:p => p > 30 },
+  ];
+  const lbGrupos = LB_BUCKETS.map(b => {
+    let bio = 0, cost = 0;
+    sfBaseLb.forEach(r => {
+      const p = pesoVigente(r);
+      if (p === null || !b.test(p)) return;
+      const bm = biomasaCalc(r);
+      if (bm > 0) { bio += bm; cost += (costosCor[r.corrida_id] || 0); }
+    });
+    return { lbl: b.lbl, key: b.key, val: bio > 0 ? cost / bio : 0 };
   });
-  const costoLb = totalBiomasa > 0 ? costoConBio / totalBiomasa : 0;
   const engorde     = _siembra.filter(r => !(r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const precria     = _siembra.filter(r =>  (r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const _umbralCosecha = parseInt(
@@ -736,7 +766,12 @@ function actualizarKPIs() {
   document.getElementById('k-total').textContent     = sf.length;
   document.getElementById('k-has').textContent       = totalHas.toFixed(1);
   document.getElementById('k-costo').textContent     = totalCosto > 0 ? F.abr(totalCosto) : '—';
-  document.getElementById('k-lb').textContent        = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
+  const _rowsLb = lbGrupos
+    .filter(g => !_filtroPeso || _filtroPeso === g.key)
+    .map(g => `<div style="display:flex;justify-content:space-between;gap:8px">`
+      + `<span style="color:var(--gris-3);font-weight:600">${g.lbl}</span>`
+      + `<span>${g.val > 0 ? '$' + g.val.toFixed(2) : '—'}</span></div>`).join('');
+  document.getElementById('k-lb-grupos').innerHTML = _rowsLb || '<span style="color:var(--gris-3)">—</span>';
   document.getElementById('k-hd').textContent        = avgHD > 0 ? '$' + avgHD.toFixed(2) : '—';
   document.getElementById('k-dir').textContent       = hdDir > 0 ? '$' + hdDir.toFixed(2) : '—';
   document.getElementById('k-ind').textContent       = hdInd > 0 ? '$' + hdInd.toFixed(2) : '—';
