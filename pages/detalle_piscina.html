@@ -509,7 +509,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
     .select('fecha_reporte').eq('empresa_id', emp)
     .order('fecha_reporte', { ascending: false }).limit(1).single();
   const { data: s } = await _sb.from('siembra_diaria')
-    .select('has, dias_totales, larvas_totales, balanceado_kg, gramos, biomasa_proyectada_lbs, sobrevivencia, raleo_lbs, corridas(fecha_siembra)')
+    .select('has, dias_totales, edad_dias, larvas_totales, balanceado_kg, gramos, biomasa_proyectada_lbs, sobrevivencia, raleo_lbs, corridas(fecha_siembra)')
     .eq('empresa_id', emp)
     .eq('piscina_id', piscinaId)
     .eq('fecha_reporte', uf2?.fecha_reporte)
@@ -529,9 +529,20 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
     const { data: gm } = await _sb.from('gramaje_muestreo')
       .select('fecha_muestreo, peso_gramos, sobrevivencia, cantidad_larvas')
       .eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
-    const fS = (s?.corridas?.fecha_siembra || '').slice(0, 10);
+    // Inicio de la corrida VIGENTE: el código de corrida se reutiliza, así que
+    // corridas.fecha_siembra puede ser del ciclo anterior; edad_dias es lo fresco →
+    // inicio = fecha_reporte − edad_dias, tomando la fecha más reciente entre ambas.
+    let inicioCorrida = (s?.corridas?.fecha_siembra || '').slice(0, 10);
+    const frDet = (uf2?.fecha_reporte || '').slice(0, 10);
+    const edadDet = Number(s?.edad_dias);
+    if (frDet && isFinite(edadDet) && edadDet >= 0) {
+      const dd = new Date(frDet + 'T00:00:00Z');
+      dd.setUTCDate(dd.getUTCDate() - edadDet);
+      const der = dd.toISOString().slice(0, 10);
+      if (!inicioCorrida || der > inicioCorrida) inicioCorrida = der;
+    }
     const fM = (gm?.fecha_muestreo || '').slice(0, 10);
-    const staleGramaje = fS && fM && fM < fS;   // muestreo de corrida anterior
+    const staleGramaje = inicioCorrida && fM && fM < inicioCorrida;   // muestreo de corrida anterior
     if (gm && !staleGramaje) {
       fechaMuestreo  = gm.fecha_muestreo || null;
       pesoMuestreo   = Number(gm.peso_gramos) || 0;
@@ -542,10 +553,15 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   // Sobrevivencia REAL del muestreo (gramaje), normalizada a % · raleo (del resumen)
   const sobrevPct = (sobrevMuestreo != null) ? (sobrevMuestreo <= 1.5 ? sobrevMuestreo * 100 : sobrevMuestreo) : null;
   const raleoLbs  = Number(s?.raleo_lbs) || 0;
+  // Sobrevivencia SOSPECHOSA (mismo criterio que el gerencial): piscina de engorde madura
+  // (día cultivo > 35) con sobrev ≥ 80% = mortalidad sin actualizar en ACOSUX → biomasa no confiable.
+  const sobrevSospe = !(codigoCorrida || '').includes('-PC-')
+                   && (Number(s?.edad_dias) || 0) > 35
+                   && sobrevPct != null && sobrevPct >= 80;
   // Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso(muestreo) ÷ 453.592
   //   Usa la sobrevivencia del gramaje, NO la del resumen (que viene inflada).
   const larvasBio  = larvasMuestreo || larvas;
-  const biomasaLbs = (larvasBio > 0 && sobrevPct != null && pesoMuestreo > 0) ? larvasBio * (sobrevPct/100) * pesoMuestreo / 453.592 : 0;
+  const biomasaLbs = (!sobrevSospe && larvasBio > 0 && sobrevPct != null && pesoMuestreo > 0) ? larvasBio * (sobrevPct/100) * pesoMuestreo / 453.592 : 0;
   const costoLb    = biomasaLbs > 0 ? totalCosto / biomasaLbs : 0;
 
   // Cargar presupuesto para semaforizar
@@ -606,9 +622,11 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   document.getElementById('kc-total').textContent  = '$' + F.num(totalCosto, 2);
   document.getElementById('kc-lb').textContent     = costoLb > 0 ? '$' + costoLb.toFixed(2) : '—';
   document.getElementById('kc-biomasa').textContent = biomasaLbs > 0 ? F.num(biomasaLbs, 0) + ' lb' : '—';
-  document.getElementById('kc-biomasa-fecha').textContent =
-    (fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo') +
-    (larvasBio ? ' · larvas: ' + (larvasBio/1e6).toFixed(2) + 'M' : '');
+  document.getElementById('kc-biomasa-fecha').innerHTML =
+    sobrevSospe
+      ? '<span style="color:#C62828;font-weight:700">⚠ sobrevivencia sin actualizar</span>'
+      : (fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo') +
+        (larvasBio ? ' · larvas: ' + (larvasBio/1e6).toFixed(2) + 'M' : '');
   document.getElementById('kc-peso').textContent = pesoMuestreo > 0 ? F.num(pesoMuestreo, 2) + ' g' : '—';
   document.getElementById('kc-peso-fecha').textContent = fechaMuestreo ? 'muestreo: ' + F.date(fechaMuestreo) : 'sin muestreo aún';
   document.getElementById('kc-sobrev').textContent = sobrevPct != null ? sobrevPct.toFixed(0) + '%' : '—';

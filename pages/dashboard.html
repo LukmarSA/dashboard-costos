@@ -239,6 +239,17 @@
         <div class="kpi-mini c-rojo"><div class="kpi-mini-label">Próx. cosecha</div><div class="kpi-mini-val" id="k-prox">—</div><div class="kpi-mini-sub" id="sub-prox-cosecha">más de 45 días cultivo</div></div>
       </div>
 
+      <!-- RED FLAG: piscinas maduras con sobrevivencia sin actualizar o sin muestreo -->
+      <div id="panel-muestreo" style="display:none;margin-bottom:1.25rem;background:#FFEBEE;border:1.5px solid #C62828;border-left:5px solid #C62828;border-radius:var(--r);padding:12px 16px">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap">
+          <svg width="18" height="18" viewBox="0 0 16 16" fill="none" stroke="#C62828" stroke-width="2"><path d="M8 2L14 13H2L8 2z"/><line x1="8" y1="7" x2="8" y2="10"/><circle cx="8" cy="12" r="0.5" fill="#C62828"/></svg>
+          <span style="font-size:14px;font-weight:800;color:#C62828;letter-spacing:.3px">REQUIEREN MUESTREO DE MORTALIDAD</span>
+          <span id="muestreo-count" style="background:#C62828;color:white;font-size:11px;font-weight:700;padding:2px 9px;border-radius:99px"></span>
+          <span style="font-size:11px;color:#8a3a3a">Sobrevivencia sin actualizar en ACOSUX → biomasa y $/Lb no confiables en estas piscinas</span>
+        </div>
+        <div id="muestreo-body" style="display:flex;flex-wrap:wrap;gap:8px"></div>
+      </div>
+
       <!-- Costos por rubro -->
       <div class="panel" style="margin-bottom:1.25rem">
         <div class="panel-header">
@@ -567,6 +578,7 @@ async function cargarDashboard() {
   renderGrafico();
   filtrarTabla();
   renderAlertas();
+  renderMuestreo();
   document.getElementById('tabla-sub').textContent =
     `${_siembra.length} piscinas · siembra ${F.date(fechaSiembra)}`;
 }
@@ -597,6 +609,7 @@ function actualizarTodo() {
   renderGrafico();
   filtrarTabla();
   renderAlertas();
+  renderMuestreo();
 }
 
 function setFiltroTipo(tipo) {
@@ -665,33 +678,63 @@ function costosPorCorridaFiltrado() {
 
 // Gramaje (último muestreo por piscina): sobrevivencia REAL, peso y larvas
 let _gramaje = {};   // piscina_codigo -> { sobrev, peso, larvas, fmuestreo }
-// Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso ÷ 453.592
+// Fecha de inicio de la corrida VIGENTE. OJO: el código de corrida se reutiliza entre
+// ciclos, así que corridas.fecha_siembra puede quedar con la fecha del ciclo ANTERIOR.
+// edad_dias (= "Días Cultivo", dato fresco) es lo confiable → derivamos el inicio como
+// fecha_reporte − edad_dias y tomamos la fecha MÁS RECIENTE entre ambas.
+function corridaInicioISO(r) {
+  let inicio = (r.corridas?.fecha_siembra || '').slice(0, 10);
+  const fr = (r.fecha_reporte || '').slice(0, 10);
+  const edad = Number(r.edad_dias);
+  if (fr && isFinite(edad) && edad >= 0) {
+    const d = new Date(fr + 'T00:00:00Z');
+    d.setUTCDate(d.getUTCDate() - edad);
+    const derivada = d.toISOString().slice(0, 10);
+    if (!inicio || derivada > inicio) inicio = derivada;   // la más reciente = corrida actual
+  }
+  return inicio;
+}
+// ¿El gramaje es de una corrida ANTERIOR (piscina resembrada)? El muestreo sería previo
+// al inicio de la corrida vigente → biomasa fantasma.
+function gramajeEsViejo(r, g) {
+  const inicio = corridaInicioISO(r);
+  const fMuestreo = (g.fmuestreo || '').slice(0, 10);
+  return !!(inicio && fMuestreo && fMuestreo < inicio);
+}
+// Umbrales del RED FLAG / exclusión por sobrevivencia sin actualizar.
+const _MUESTREO_EDAD_MIN = 35;   // solo piscinas maduras (día cultivo > esto)
+const _MUESTREO_SOBREV   = 80;   // sobrevivencia ≥ esto a edad avanzada = sospechosa (default de siembra)
+// Sobrevivencia SOSPECHOSA: piscina de engorde MADURA cuyo gramaje sigue en niveles de
+// siembra (mortalidad NO actualizada en ACOSUX) → su biomasa NO es confiable.
+function sobrevSospechosa(r, g) {
+  const edad = Number(r.edad_dias) || 0;
+  if (edad <= _MUESTREO_EDAD_MIN) return false;
+  if ((r.corridas?.codigo_corrida || '').includes('-PC-')) return false;   // no aplica a precría
+  const sv = Number(g?.sobrev);
+  const svPct = sv <= 1.5 ? sv * 100 : sv;
+  return isFinite(svPct) && svPct >= _MUESTREO_SOBREV;
+}
+// Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso ÷ 453.592.
 // Usa la sobrevivencia del gramaje/muestreo, NO la del resumen (que viene inflada).
-// SOLO si el gramaje es de la CORRIDA VIGENTE: si el muestreo es anterior a la
-// fecha de siembra de la corrida actual, pertenece a una corrida ya cosechada
-// (piscina resembrada) → biomasa fantasma → 0 hasta su primer muestreo real.
+// Cuenta SOLO si el gramaje es de la corrida vigente Y la sobrevivencia es confiable
+// (las sospechosas se excluyen del cálculo y salen en el RED FLAG).
 function biomasaCalc(r) {
   const cod = r.piscinas?.codigo;
   const g = cod ? _gramaje[cod] : null;
   if (!g) return 0;
-  const fSiembra  = (r.corridas?.fecha_siembra || '').slice(0, 10);
-  const fMuestreo = (g.fmuestreo || '').slice(0, 10);
-  if (fSiembra && fMuestreo && fMuestreo < fSiembra) return 0;   // gramaje de corrida anterior
+  if (gramajeEsViejo(r, g)) return 0;      // gramaje de corrida anterior
+  if (sobrevSospechosa(r, g)) return 0;    // sobrevivencia sin actualizar → no confiable
   const larv = Number(g.larvas) || 0, peso = Number(g.peso) || 0, sv = Number(g.sobrev);
   if (!larv || !peso || !isFinite(sv)) return 0;
   const frac = sv <= 1.5 ? sv : sv / 100;
   return larv * frac * peso / 453.592;
 }
 
-// Peso (g) del muestreo VIGENTE de la piscina, o null. Mismo criterio de corrida que
-// biomasaCalc: descarta el gramaje de una corrida anterior (piscina resembrada).
+// Peso (g) del muestreo VIGENTE de la piscina, o null (mismo criterio de corrida).
 function pesoVigente(r) {
   const cod = r.piscinas?.codigo;
   const g = cod ? _gramaje[cod] : null;
-  if (!g) return null;
-  const fSiembra  = (r.corridas?.fecha_siembra || '').slice(0, 10);
-  const fMuestreo = (g.fmuestreo || '').slice(0, 10);
-  if (fSiembra && fMuestreo && fMuestreo < fSiembra) return null;
+  if (!g || gramajeEsViejo(r, g)) return null;
   const p = Number(g.peso);
   return (isFinite(p) && p > 0) ? p : null;
 }
@@ -1058,6 +1101,45 @@ function renderGrafico() {
   const totalEl = document.getElementById('chart-total-label');
   if (totalEl) totalEl.textContent = 'Total: $' + F.num(totalCosto, 2);
   document.getElementById('chart-legend').innerHTML = '';
+}
+
+// RED FLAG — piscinas de engorde MADURAS con sobrevivencia sin actualizar (sospechosa,
+// mismo criterio que biomasaCalc) o SIN MUESTREO vigente. Su biomasa/$Lb no es confiable
+// → ya se excluyen del cálculo; acá se listan para que producción las muestree.
+const _MESABR = ['ene','feb','mar','abr','may','jun','jul','ago','sep','oct','nov','dic'];
+function _fCorta(iso) {
+  if (!iso) return '—';
+  const d = new Date(String(iso).slice(0, 10) + 'T00:00:00Z');
+  return isNaN(d) ? String(iso) : (String(d.getUTCDate()).padStart(2, '0') + '-' + _MESABR[d.getUTCMonth()]);
+}
+function renderMuestreo() {
+  const panel = document.getElementById('panel-muestreo');
+  if (!panel) return;
+  const flags = [];
+  siembraFiltrada().forEach(r => {
+    const esPrecria = (r.corridas?.codigo_corrida || '').includes('-PC-');
+    const edad = Number(r.edad_dias) || 0;
+    if (esPrecria || edad <= _MUESTREO_EDAD_MIN) return;   // solo engorde maduro
+    const cod = r.piscinas?.codigo || '—';
+    const g = cod ? _gramaje[cod] : null;
+    if (!g || gramajeEsViejo(r, g)) { flags.push({ cod, edad, tipo: 'SIN' }); return; }
+    if (sobrevSospechosa(r, g)) {
+      const sv = Number(g.sobrev);
+      flags.push({ cod, edad, sv: (sv <= 1.5 ? sv * 100 : sv), fecha: g.fmuestreo, tipo: 'REVISAR' });
+    }
+  });
+  if (!flags.length) { panel.style.display = 'none'; return; }
+  panel.style.display = '';
+  document.getElementById('muestreo-count').textContent = flags.length;
+  // SIN MUESTREO primero, luego por edad desc
+  flags.sort((a, b) => (a.tipo !== b.tipo) ? (a.tipo === 'SIN' ? -1 : 1) : (b.edad - a.edad));
+  document.getElementById('muestreo-body').innerHTML = flags.map(f => {
+    if (f.tipo === 'SIN')
+      return `<span style="background:#C62828;color:#fff;border-radius:6px;padding:3px 10px;font-size:12px;font-weight:700">`
+        + `${f.cod} · día ${f.edad} · SIN MUESTREO</span>`;
+    return `<span style="background:#fff;border:1px solid #C62828;border-radius:6px;padding:3px 10px;font-size:12px;color:#8a1c1c">`
+      + `<b>${f.cod}</b> · día ${f.edad} · sobrev ${f.sv.toFixed(0)}% · últ. muestreo ${_fCorta(f.fecha)}</span>`;
+  }).join('');
 }
 
 function renderAlertas() {
