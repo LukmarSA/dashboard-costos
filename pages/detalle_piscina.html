@@ -509,7 +509,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
     .select('fecha_reporte').eq('empresa_id', emp)
     .order('fecha_reporte', { ascending: false }).limit(1).single();
   const { data: s } = await _sb.from('siembra_diaria')
-    .select('has, dias_totales, larvas_totales, balanceado_kg, gramos, biomasa_proyectada_lbs, sobrevivencia, raleo_lbs')
+    .select('has, dias_totales, larvas_totales, balanceado_kg, gramos, biomasa_proyectada_lbs, sobrevivencia, raleo_lbs, corridas(fecha_siembra)')
     .eq('empresa_id', emp)
     .eq('piscina_id', piscinaId)
     .eq('fecha_reporte', uf2?.fecha_reporte)
@@ -521,16 +521,23 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   const balKg  = s?.balanceado_kg || 0;
   const hd = totalCosto / has / dias;
 
-  // Datos del ÚLTIMO MUESTREO (gramaje ACOSUX) — sobrevivencia REAL, peso y larvas
+  // Datos del ÚLTIMO MUESTREO (gramaje ACOSUX) — sobrevivencia REAL, peso y larvas.
+  // Solo si el muestreo es de la CORRIDA VIGENTE: si es anterior a la fecha de siembra
+  // de la corrida actual, pertenece a una corrida ya cosechada (piscina resembrada) → se ignora.
   let fechaMuestreo = null, pesoMuestreo = 0, sobrevMuestreo = null, larvasMuestreo = 0;
   if (piscinaCod) {
     const { data: gm } = await _sb.from('gramaje_muestreo')
       .select('fecha_muestreo, peso_gramos, sobrevivencia, cantidad_larvas')
       .eq('empresa_id', emp).eq('piscina_codigo', piscinaCod).maybeSingle();
-    fechaMuestreo  = gm?.fecha_muestreo || null;
-    pesoMuestreo   = Number(gm?.peso_gramos) || 0;
-    sobrevMuestreo = gm?.sobrevivencia != null ? Number(gm.sobrevivencia) : null;
-    larvasMuestreo = Number(gm?.cantidad_larvas) || 0;
+    const fS = (s?.corridas?.fecha_siembra || '').slice(0, 10);
+    const fM = (gm?.fecha_muestreo || '').slice(0, 10);
+    const staleGramaje = fS && fM && fM < fS;   // muestreo de corrida anterior
+    if (gm && !staleGramaje) {
+      fechaMuestreo  = gm.fecha_muestreo || null;
+      pesoMuestreo   = Number(gm.peso_gramos) || 0;
+      sobrevMuestreo = gm.sobrevivencia != null ? Number(gm.sobrevivencia) : null;
+      larvasMuestreo = Number(gm.cantidad_larvas) || 0;
+    }
   }
   // Sobrevivencia REAL del muestreo (gramaje), normalizada a % · raleo (del resumen)
   const sobrevPct = (sobrevMuestreo != null) ? (sobrevMuestreo <= 1.5 ? sobrevMuestreo * 100 : sobrevMuestreo) : null;

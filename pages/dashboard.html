@@ -556,10 +556,10 @@ async function cargarDashboard() {
 
   // Gramaje (último muestreo por piscina): sobrevivencia REAL, peso y larvas → biomasa
   const { data: gramRows } = await _sb.from('gramaje_muestreo')
-    .select('piscina_codigo, sobrevivencia, peso_gramos, cantidad_larvas')
+    .select('piscina_codigo, sobrevivencia, peso_gramos, cantidad_larvas, fecha_muestreo')
     .eq('empresa_id', emp);
   _gramaje = {};
-  (gramRows || []).forEach(g => { _gramaje[g.piscina_codigo] = { sobrev: g.sobrevivencia, peso: g.peso_gramos, larvas: g.cantidad_larvas }; });
+  (gramRows || []).forEach(g => { _gramaje[g.piscina_codigo] = { sobrev: g.sobrevivencia, peso: g.peso_gramos, larvas: g.cantidad_larvas, fmuestreo: g.fecha_muestreo }; });
 
   document.getElementById('loading-tabla').style.display = 'none';
   actualizarKPIs();
@@ -660,13 +660,19 @@ function costosPorCorridaFiltrado() {
 }
 
 // Gramaje (último muestreo por piscina): sobrevivencia REAL, peso y larvas
-let _gramaje = {};   // piscina_codigo -> { sobrev, peso, larvas }
+let _gramaje = {};   // piscina_codigo -> { sobrev, peso, larvas, fmuestreo }
 // Biomasa a la fecha = larvas × sobrevivencia(GRAMAJE, real) × peso ÷ 453.592
 // Usa la sobrevivencia del gramaje/muestreo, NO la del resumen (que viene inflada).
+// SOLO si el gramaje es de la CORRIDA VIGENTE: si el muestreo es anterior a la
+// fecha de siembra de la corrida actual, pertenece a una corrida ya cosechada
+// (piscina resembrada) → biomasa fantasma → 0 hasta su primer muestreo real.
 function biomasaCalc(r) {
   const cod = r.piscinas?.codigo;
   const g = cod ? _gramaje[cod] : null;
   if (!g) return 0;
+  const fSiembra  = (r.corridas?.fecha_siembra || '').slice(0, 10);
+  const fMuestreo = (g.fmuestreo || '').slice(0, 10);
+  if (fSiembra && fMuestreo && fMuestreo < fSiembra) return 0;   // gramaje de corrida anterior
   const larv = Number(g.larvas) || 0, peso = Number(g.peso) || 0, sv = Number(g.sobrev);
   if (!larv || !peso || !isFinite(sv)) return 0;
   const frac = sv <= 1.5 ? sv : sv / 100;
@@ -680,9 +686,15 @@ function actualizarKPIs() {
 
   const totalHas    = sf.reduce((a,r) => a + (r.has||0), 0);
   const totalCosto  = Object.values(costosCor).reduce((a,v) => a+v, 0);
-  // $/Lb = costo total ÷ biomasa proyectada total (libras, del resumen de siembra)
-  const totalBiomasa = sf.reduce((a,r) => a + biomasaCalc(r), 0);
-  const costoLb      = totalBiomasa > 0 ? totalCosto / totalBiomasa : 0;
+  // $/Lb = costo ÷ biomasa a la fecha, SOLO de piscinas con biomasa (muestreo de la
+  // corrida vigente). Las recién sembradas sin muestreo aportan costo pero 0 biomasa,
+  // así que se excluyen del ratio (si no, hundirían el $/Lb). Reconciliá con los grupos de peso.
+  let totalBiomasa = 0, costoConBio = 0;
+  sf.forEach(r => {
+    const b = biomasaCalc(r);
+    if (b > 0) { totalBiomasa += b; costoConBio += (costosCor[r.corrida_id] || 0); }
+  });
+  const costoLb = totalBiomasa > 0 ? costoConBio / totalBiomasa : 0;
   const engorde     = _siembra.filter(r => !(r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const precria     = _siembra.filter(r =>  (r.corridas?.codigo_corrida||'').includes('-PC-')).length;
   const _umbralCosecha = parseInt(
