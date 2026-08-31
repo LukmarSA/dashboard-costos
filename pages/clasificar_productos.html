@@ -112,7 +112,6 @@
           <option value="Servicios de Terceros">Servicios de Terceros</option>
           <option value="Combustible">Combustible</option>
           <option value="Gastos">Gastos</option>
-          <option value="Provisión CIF">Provisión CIF</option>
         </select>
         <select id="filtro-tipo" onchange="filtrar()">
           <option value="">Todos</option>
@@ -175,7 +174,6 @@ const CATALOGO = {
   'Servicios de Terceros': { sub: ['Servicios de Terceros'], cats: { 'Servicios de Terceros': ['Alquileres', 'Honorarios Profesionales', 'Servicios Generales', 'Servicios de Transporte'] } },
   'Combustible': { sub: ['Combustible'], cats: { 'Combustible': ['Combustible'] } },
   'Gastos': { sub: ['Gasto de Venta', 'Gastos Administrativos', 'Gastos Financieros'], cats: { 'Gasto de Venta': ['Gasto de Venta'], 'Gastos Administrativos': ['Gastos Administrativos'], 'Gastos Financieros': ['Gastos Financieros'] } },
-  'Provisión CIF': { sub: ['Provisión CIF'], cats: { 'Provisión CIF': ['Provisión CIF'] } },
 };
 
 (async () => {
@@ -437,8 +435,6 @@ const GRUPO_MAP = {
   'servicios de terceros': 'Servicios de Terceros',
   'combustible': 'Combustible',
   'gastos': 'Gastos',
-  'provisión cif': 'Provisión CIF',
-  'provision cif': 'Provisión CIF',
   // alias de nombres viejos → nuevos
   'juveniles': 'Siembra',
   'personal': 'Mano de Obra',

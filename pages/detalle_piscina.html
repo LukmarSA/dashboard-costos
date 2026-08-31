@@ -169,7 +169,7 @@
         <div class="kpi-costo-card" style="border-left-color:#534AB7">
           <div class="kpi-costo-label">Indirectos $/Has/Día</div>
           <div class="kpi-costo-val" style="color:#534AB7" id="kc-ind">—</div>
-          <div class="kpi-costo-sub">8 grupos indirectos</div>
+          <div class="kpi-costo-sub">7 grupos indirectos</div>
         </div>
         <div class="kpi-costo-card" id="sem-millar">
           <div style="display:flex;justify-content:space-between;align-items:flex-start">
@@ -304,14 +304,13 @@ const GRUPOS_FIJOS = [
   { grupo:'Servicios de Terceros',       unidad:'$/Has/Día', color:'#16A085' },
   { grupo:'Combustible',                 unidad:'$/Has/Día', color:'#D35400' },
   { grupo:'Gastos',                      unidad:'$/Has/Día', color:'#9B59B6' },
-  { grupo:'Provisión CIF',               unidad:'$/Has/Día', color:'#34495E' },
 ];
 
 const COLORES_GRUPO = {};
 GRUPOS_FIJOS.forEach(g => { COLORES_GRUPO[g.grupo] = g.color; });
 COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
 
-const GRUPOS_INDIRECTOS = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos','Provisión CIF'];
+const GRUPOS_INDIRECTOS = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos'];
 
 (async () => {
   if (!await verificarSesion(_sb)) return;
@@ -494,6 +493,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
 
   (costos || []).forEach(c => {
     const g = c.grupo || 'SINASIGNACIÓN';
+    if (g === 'Provisión CIF') return;   // grupo oculto: no se muestra ni suma
     if (!porGrupo[g]) porGrupo[g] = { total: 0, prods: [], cant: 0, medidas: new Set() };
     porGrupo[g].total += c.valor;
     const rc   = realPorProd[c.producto_codigo];
@@ -604,7 +604,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
   (presData || []).forEach(p => { presDB[p.grupo] = p.presupuesto_hd || 0; });
 
   // Calcular $/Has/Día total de indirectos para semáforo de tarjeta
-  const GRUPOS_IND_SEM  = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos','Provisión CIF'];
+  const GRUPOS_IND_SEM  = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos'];
   const costoIndSem     = GRUPOS_IND_SEM.reduce((a,g) => a + (porGrupo[g]?.total||0), 0);
   const hdInd           = has > 0 && dias > 0 ? costoIndSem/has/dias : 0;
 
@@ -634,7 +634,7 @@ async function cargarCostos(codigoCorrida, piscinaIdParam) {
 
   // Calcular Directos e Indirectos
   const GRUPOS_DIR_DET  = ['Larva','Siembra','Balanceado','Insumos Quimicos'];
-  const GRUPOS_IND_DET  = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos','Provisión CIF'];
+  const GRUPOS_IND_DET  = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos'];
   const costoDir        = GRUPOS_DIR_DET.reduce((a,g) => a + (porGrupo[g]?.total||0), 0);
   const costoIndDet     = GRUPOS_IND_DET.reduce((a,g) => a + (porGrupo[g]?.total||0), 0);
   const hdDir           = has > 0 && dias > 0 ? costoDir/has/dias : 0;

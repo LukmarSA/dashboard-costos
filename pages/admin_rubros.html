@@ -3,13 +3,12 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<script src="../js/version-guard.js?v=1"></script>
 <link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
 <link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
 <title>Rubros $/Has/Día · LUKMAR S.A.</title>
 <link rel="preconnect" href="https://fonts.googleapis.com">
 <link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
-<link rel="stylesheet" href="../css/main.css?v=2026.08.11.3">
+<link rel="stylesheet" href="../css/main.css">
 <style>
   .stats-row { display:grid; grid-template-columns:repeat(3,1fr); gap:1rem; margin-bottom:1.25rem; }
   .grupo-rubro-head td {
@@ -143,23 +142,21 @@
   </div>
 </div>
 
-<script src="../js/vendor/supabase.min.js?v=2026.08.11.3"></script>
-<script src="../js/config.js?v=2026.08.11.3"></script>
-<script src="../js/shared.js?v=2026.08.11.3"></script>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
 <script>
-let _sb;
+const _sb = getSupabaseClient();
 
 const GRUPOS = [
   'Larva', 'Siembra', 'Balanceado', 'Insumos Quimicos',
   'Mano de Obra', 'Mantenimiento', 'Depreciación', 'Otros',
-  'Servicios de Terceros', 'Combustible', 'Gastos', 'Provisión CIF',
+  'Servicios de Terceros', 'Combustible', 'Gastos',
 ];
 
 let _rubros = [];
 
 (async () => {
-  await window.APP_BUILD_READY;
-  _sb = getSupabaseClient();
   if (!await verificarSesion(_sb)) return;
   if (!requireRol(['admin'])) return;
   renderSidebar('admin_rubros');

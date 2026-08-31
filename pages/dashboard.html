@@ -222,7 +222,7 @@
         <div class="kpi-mini" style="border-top-color:#0E7C7B"><div class="kpi-mini-label">$/Lb por gramaje</div><div id="k-lb-grupos" style="color:#0E7C7B;font-size:13px;line-height:1.55;font-weight:700;margin:2px 0">—</div><div class="kpi-mini-sub">costo ÷ biomasa a la fecha</div></div>
         <div class="kpi-mini c-morado"><div class="kpi-mini-label">$/Has/Día prom.</div><div class="kpi-mini-val" id="k-hd">—</div><div class="kpi-mini-sub">promedio ponderado</div></div>
         <div class="kpi-mini" style="border-top-color:#1E6FBF"><div class="kpi-mini-label">Directos $/Has/Día</div><div class="kpi-mini-val" style="color:#1E6FBF" id="k-dir">—</div><div class="kpi-mini-sub">4 grupos de costo</div></div>
-        <div class="kpi-mini" style="border-top-color:#534AB7"><div class="kpi-mini-label">Indirectos $/Has/Día</div><div class="kpi-mini-val" style="color:#534AB7" id="k-ind">—</div><div class="kpi-mini-sub">8 grupos de costo</div></div>
+        <div class="kpi-mini" style="border-top-color:#534AB7"><div class="kpi-mini-label">Indirectos $/Has/Día</div><div class="kpi-mini-val" style="color:#534AB7" id="k-ind">—</div><div class="kpi-mini-sub">7 grupos de costo</div></div>
         <div class="kpi-mini c-amarillo">
           <div class="kpi-mini-label">Engorde / Precría</div>
           <div class="kpi-mini-val" id="k-tipos">—</div>
@@ -410,7 +410,6 @@ const GRUPOS_FIJOS = [
   { grupo:'Servicios de Terceros',       unidad:'$/Has/Día', color:'#16A085' },
   { grupo:'Combustible',                 unidad:'$/Has/Día', color:'#D35400' },
   { grupo:'Gastos',                      unidad:'$/Has/Día', color:'#9B59B6' },
-  { grupo:'Provisión CIF',               unidad:'$/Has/Día', color:'#34495E' },
 ];
 
 const COLORES_GRUPO = {};
@@ -659,6 +658,7 @@ function costosPorGrupoFiltrado() {
 
   const result = {};
   Object.entries(_costosPorGrupoXCorrida).forEach(([grupo, porCorrida]) => {
+    if (grupo === 'Provisión CIF') return;   // grupo oculto: no se muestra ni suma
     Object.entries(porCorrida).forEach(([cId, val]) => {
       if (!corridaIds.has(cId)) return;
       if (!result[grupo]) result[grupo] = 0;
@@ -797,7 +797,7 @@ function actualizarKPIs() {
   const avgHD = sumHas > 0 ? sumHD / sumHas : 0;
 
   // Indirectos $/Has/Día
-  const GRUPOS_IND = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos','Provisión CIF'];
+  const GRUPOS_IND = ['Mano de Obra','Mantenimiento','Depreciación','Otros','Servicios de Terceros','Combustible','Gastos'];
   const totalHasDias = sf.reduce((a,r) => a + (r.has||1)*(r.dias_totales||1), 0);
   const costoInd = GRUPOS_IND.reduce((a,g) => a + (costosGrp[g]||0), 0);
   const hdInd = totalHasDias > 0 ? costoInd / totalHasDias : 0;
