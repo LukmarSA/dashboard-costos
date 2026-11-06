@@ -37,6 +37,22 @@ It skips the `usuarios` table (personal data). It never prints or stores the dat
 
 Only after that is it safe to prune old snapshots in Supabase.
 
+### Planned prune policy (not executed yet; waits for a verified archive)
+
+Keep in `costos_piscina`: the 14 newest daily snapshots, the last snapshot of each month, and for every cycle
+that has stopped appearing (`corridas.fecha_ultimo_reporte` more than 3 days before the newest report) the
+snapshot of its last report date, so each finished cycle keeps its final cost. Delete the rest, then
+`VACUUM FULL` to give the disk space back. Estimated result: about 255 MB for the whole database (limit 500 MB).
+
+### Closed cycles (already live)
+
+`public.actualizar_estado_corridas()` runs daily at 11:30 UTC (pg_cron job `actualizar-estado-corridas`). It marks
+a cycle `cosechada` when it has been absent from the siembra reports for 60 days or more (measured against the
+newest report, so a robot outage never closes anything) and reopens it if it returns. If the robot loads costs
+through `corridas` filtered by `estado = 'en_proceso'`, load the siembra report first (the siembra import sets
+`en_proceso` again) or do not filter by `estado`. To stop the job:
+`select cron.unschedule('actualizar-estado-corridas');`
+
 ### Restoring a table from the archive
 
 Each file is a plain CSV with a header. For example, to load one month back into an existing table:
