@@ -89,14 +89,20 @@
   </div>
 </div>
 
-<script src="js/vendor/supabase.min.js?v=2026.08.11.3"></script>
-<script src="js/config.js?v=2026.08.11.3"></script>
+<script src="js/vendor/supabase.min.js?v=2026.11.06.1"></script>
+<script src="js/config.js?v=2026.11.06.1"></script>
+<script src="js/estado-servicio.js?v=2026.11.06.1"></script>
 <script>
   let _sb = null;
 
   function mostrarErrorLogin(error) {
     const msgErr = document.getElementById('msg-error');
-    msgErr.textContent = error?.message || String(error) || 'No se pudo iniciar la aplicación.';
+    console.error('[login]', error);
+    // mensajeErrorServicio (js/estado-servicio.js) traduce 402 / credenciales / red a texto claro.
+    const texto = (typeof mensajeErrorServicio === 'function')
+      ? mensajeErrorServicio(error)
+      : (error?.message || String(error));
+    msgErr.textContent = texto || 'No se pudo iniciar la aplicación.';
     msgErr.classList.add('visible');
   }
 
