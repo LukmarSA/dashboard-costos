@@ -379,6 +379,8 @@ grant execute on function public.costos_fechas(), public.costos_huella(date), pu
   public.costos_huella_hist(date), public.compactar_costos_fecha(date), public.registrar_costos_pendientes(integer, integer),
   public.mantener_costos(integer, integer), public.verificar_costos_muestra(integer) to service_role;
 
+-- (SUPERSEDED: the prune, the restored constraints and the daily schedule were executed later on 2026-11-07;
+--  see 20261107_costos_prune_and_schedule.sql.)
 -- STATE AT THE TIME OF WRITING (2026-11-07): the 121 snapshot dates older than the newest 3 are registered; the prune of
 -- costos_piscina and the daily schedule of mantener_costos() have NOT been executed yet (see 20261107_costos_hist_chain_verify.sql
 -- for the later changes: entries checksum, cheaper daily gate, chain verification, verificar_costos_muestra dropped).

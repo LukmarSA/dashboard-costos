@@ -35,14 +35,30 @@ It skips the `usuarios` table (personal data). It never prints or stores the dat
    ```
    It must say `VERIFY OK`.
 
-Only after that is it safe to prune old snapshots in Supabase.
+The archive is still recommended (the Free plan has no downloadable backups), but it is no longer a precondition for
+the prune: see the next section. It exports `costos_hist` like any other table.
 
-### Planned prune policy (not executed yet; waits for a verified archive)
+### Cost history and the daily prune (DONE on 2026-11-07)
 
-Keep in `costos_piscina`: the 14 newest daily snapshots, the last snapshot of each month, and for every cycle
-that has stopped appearing (`corridas.fecha_ultimo_reporte` more than 3 days before the newest report) the
-snapshot of its last report date, so each finished cycle keeps its final cost. Delete the rest, then
-`VACUUM FULL` to give the disk space back. Estimated result: about 255 MB for the whole database (limit 500 MB).
+On 2026-11-06 the database was 1,421 MB on a 500 MB plan (the API answered HTTP 402 `exceed_db_size_quota`, and a
+query failed with "No space left on device"). Without waiting for the archive, the old daily snapshots were not deleted
+blindly: each one was first saved in a compact, lossless change-log and verified.
+
+- `costos_piscina` now keeps only the **newest 7 snapshot dates** in full (about 40 MB).
+- `costos_hist` keeps every older day as "only the rows that changed" (about 280 MB); `costos_hist_fechas` holds a
+  fingerprint of each original snapshot. Rebuild any past day with `select * from costos_asof('2026-07-15');`
+  (heavy: it takes a minute or two on the Free plan; use it for investigations, not in the dashboard).
+- Verified: 121 of 121 dates, once when saved and once independently from the stored data; a deliberately corrupted
+  entry was detected. The prune ran in one transaction that compared fingerprints and would have rolled back otherwise.
+  Not preserved: the surrogate columns `id` and `created_at` of the old rows.
+- `public.mantener_costos()` runs daily at 12:00 UTC (pg_cron job `mantener-costos`): it saves new old dates into the
+  history and deletes full snapshots outside the 7-date window, only if the original rows and the stored entries still
+  match their checksums (anything else is reported in `conflictos`, not deleted).
+- **Runway:** the history grows about 3 MB per day. The database is about 375 MB now, so it reaches the 500 MB limit in
+  roughly five weeks unless the oldest history is archived (this tool) and trimmed from the database.
+- If the robot re-imports an old file, `mantener_costos()` reports that date as a conflict and does not delete it.
+- Do not run the prune statements in `supabase/migrations/20261107_costos_prune_and_schedule.sql` again: they are
+  documentation of a one-time operation.
 
 ### Closed cycles (already live)
 
