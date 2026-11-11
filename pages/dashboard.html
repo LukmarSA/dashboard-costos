@@ -448,6 +448,13 @@ COLORES_GRUPO['SINASIGNACIÓN'] = '#BDC3C7';
 async function rpcPaginado(fn, params, orderCols) {
   const base = APP_CONFIG.supabase.url;
   const key  = APP_CONFIG.supabase.anonKey;
+  // Token de la sesión del usuario (rol "authenticated"). La clave pública (anon) queda solo como último recurso:
+  // la base de datos ya no permite que "anon" ejecute estas funciones (ver supabase/migrations).
+  let token = key;
+  try {
+    const { data: sesion } = await _sb.auth.getSession();
+    token = sesion?.session?.access_token || key;
+  } catch (e) { console.warn('No se pudo leer la sesión; se usa la clave pública.', e); }
   const order = (orderCols || []).map(c => c + '.asc').join(',');
   const lim = 1000;
   let todo = [], offset = 0;
@@ -455,7 +462,7 @@ async function rpcPaginado(fn, params, orderCols) {
     const url = `${base}/rest/v1/rpc/${fn}?` + (order ? `order=${order}&` : '') + `offset=${offset}&limit=${lim}`;
     const resp = await fetch(url, {
       method: 'POST',
-      headers: { 'apikey': key, 'Authorization': 'Bearer ' + key, 'Content-Type': 'application/json' },
+      headers: { 'apikey': key, 'Authorization': 'Bearer ' + token, 'Content-Type': 'application/json' },
       body: JSON.stringify(params),
     });
     if (!resp.ok) { console.error('Error RPC', fn, resp.status, await resp.text()); break; }

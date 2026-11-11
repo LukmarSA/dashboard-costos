@@ -12,6 +12,7 @@ const VENDOR = path.join(ROOT, 'js', 'vendor') + path.sep;
 const BASE = 'http://127.0.0.1:8765/';
 const MSG402 = 'Service for this project is restricted due to the following violations: exceed_db_size_quota. The project owner must upgrade their plan or remove spend caps to restore service.';
 const cors = { 'access-control-allow-origin': '*', 'access-control-allow-headers': '*', 'access-control-allow-methods': '*' };
+const ANON_KEY = require('fs').readFileSync(path.join(ROOT, 'js', 'config.js'), 'utf8').match(/anonKey:\s*'([^']+)'/)[1];
 let failures = 0;
 const check = (name, ok, extra = '') => { console.log((ok ? 'PASS' : 'FAIL') + ' - ' + name + (extra ? '  [' + extra + ']' : '')); if (!ok) failures++; };
 const b64 = o => Buffer.from(JSON.stringify(o)).toString('base64url');
@@ -20,7 +21,10 @@ async function newPage(browser, { fixedIso, session, restMode, datos, authMode }
   const ctx = await browser.newContext({ viewport: { width: 1280, height: 800 } });
   const page = await ctx.newPage();
   const errors = [];
+  const rpcBearers = [];
+  const consoleErrors = [];
   page.on('pageerror', e => errors.push(e.message));
+  page.on('console', m => { if (m.type() === 'error') consoleErrors.push(m.text()); });
   if (fixedIso || session) {
     const fixed = new Date(fixedIso || '2026-11-06T15:00:00-05:00').getTime();
     const jwt = ['none', 'x'].map(() => b64({ alg: 'none' }))[0] + '.' + b64({ sub: '11111111-1111-1111-1111-111111111111', role: 'authenticated', exp: Math.floor(fixed / 1000) + 3600 }) + '.sig';
@@ -53,12 +57,19 @@ async function newPage(browser, { fixedIso, session, restMode, datos, authMode }
     const req = r.request();
     if (req.method() === 'OPTIONS') return r.fulfill({ status: 204, headers: cors });
     if (restMode === '402') return r.fulfill({ status: 402, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify({ message: MSG402 }) });
+    // The cost RPCs are executable by signed-in users only (the real database revokes anon): answer 401 to the public anon key.
+    if (/\/rpc\/get_costos_/.test(req.url())) {
+      const bearer = (req.headers()['authorization'] || '').replace(/^Bearer /, '');
+      rpcBearers.push(bearer);
+      if (bearer === ANON_KEY) return r.fulfill({ status: 401, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify({ code: '42501', message: 'permission denied for function' }) });
+      return r.fulfill({ status: 200, headers: { ...cors, 'content-type': 'application/json' }, body: JSON.stringify([{ corrida_id: 'c1', grupo: 'Balanceado', producto_codigo: 'P1', total_valor: 100 }]) });
+    }
     const table = new URL(req.url()).pathname.split('/').pop();
     const wantsObject = (req.headers()['accept'] || '').includes('vnd.pgrst.object');
     const body = wantsObject ? (table === 'siembra_diaria' ? { fecha_reporte: datos.siembra } : table === 'costos_piscina' ? { fecha_reporte: datos.costos } : {}) : [];
     return r.fulfill({ status: 200, headers: { ...cors, 'content-type': wantsObject ? 'application/vnd.pgrst.object+json' : 'application/json' }, body: JSON.stringify(body) });
   });
-  return { page, ctx, errors };
+  return { page, ctx, errors, rpcBearers, consoleErrors };
 }
 
 async function loginMessage(browser, authMode) {
@@ -140,6 +151,16 @@ async function loginMessage(browser, authMode) {
   check('REST 402 -> dashboard shows the service-suspended message', /suspendido temporalmente/.test(body.err) && body.sub === 'Error cargando datos', JSON.stringify(body).slice(0, 200));
   check('  ...and does NOT claim "Sin datos"', !/Sin datos/.test(body.tabla), body.tabla.slice(0, 80));
   await p.page.screenshot({ path: SP + '/shot_dashboard_402.png' });
+  await p.ctx.close();
+
+  // 8) The cost panel must call its RPCs with the signed-in user's token, never with the public anon key
+  p = await newPage(browser, { fixedIso: '2026-11-06T15:00:00-05:00', session: true, datos: { siembra: '2026-11-01', costos: '2026-11-01' } });
+  await p.page.goto(BASE + 'pages/dashboard.html', { waitUntil: 'load' });
+  await p.page.waitForFunction(() => /Siembra:/.test(document.getElementById('lbl-fecha').textContent), null, { timeout: 8000 }).catch(() => {});
+  await p.page.waitForTimeout(1500);
+  check('cost RPCs were called', p.rpcBearers.length >= 2, 'calls=' + p.rpcBearers.length);
+  check('  ...with the user session token, not the anon key', p.rpcBearers.length > 0 && p.rpcBearers.every(b => b !== ANON_KEY), 'anon-key calls=' + p.rpcBearers.filter(b => b === ANON_KEY).length);
+  check('  ...and no "Error RPC" logged', !p.consoleErrors.some(e => /Error RPC/.test(e)), JSON.stringify(p.consoleErrors).slice(0, 160));
   await p.ctx.close();
 
   await browser.close();
