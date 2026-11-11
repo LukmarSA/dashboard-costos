@@ -17,3 +17,8 @@ grant execute on function public.get_costos_por_grupo_producto(uuid, date) to an
 -- user's session token, so these functions run as role authenticated. After that is live, close the exposure again with:
 --   revoke execute on function public.get_costos_por_corrida_grupo(uuid, date), public.get_costos_por_grupo_producto(uuid, date) from anon;
 -- tests/e2e-browser.cjs (check 8) fails if the panel goes back to calling the RPCs with the anon key.
+
+-- CLOSED AGAIN (2026-11-11, migration revoke_anon_cost_rpcs_20261111): the fix is on main and deployed (build 2026.11.06.1),
+-- the live dashboard sends the signed-in user's token, and role authenticated was verified to still run both functions
+-- (1157 / 704 rows for 2026-11-11). Applied:
+revoke execute on function public.get_costos_por_corrida_grupo(uuid, date), public.get_costos_por_grupo_producto(uuid, date) from anon;
