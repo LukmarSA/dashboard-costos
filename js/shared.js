@@ -12,6 +12,16 @@ function withBuild(href) {
 }
 
 
+// ---- Fallback de redirección --------------------------------
+// navigateWithBuild lo define version-guard.js, pero varias páginas (dashboard, detalle,
+// presupuesto, importar_siembra, clasificar_productos, admin_rubros) no lo cargan.
+// Sin este fallback, "sesión expirada" y "Cerrar sesión" fallaban con
+// "navigateWithBuild is not defined" y el usuario no volvía al login.
+if (typeof window.navigateWithBuild !== 'function') {
+  window.navigateWithBuild = function (path) { window.location.assign(withBuild(path)); };
+}
+
+
 // ---- MÓDULOS DE LA PLATAFORMA (escalable) ------------------
 const MODULOS = [
   {
