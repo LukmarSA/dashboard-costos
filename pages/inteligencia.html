@@ -1,0 +1,392 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<link rel="icon" type="image/png" href="../apple-touch-icon-lukmar.png">
+<link rel="apple-touch-icon" href="../apple-touch-icon-lukmar.png">
+<title>Inteligencia de costos · LUKMAR S.A.</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Montserrat:wght@400;500;600;700&display=swap" rel="stylesheet">
+<link rel="stylesheet" href="../css/main.css">
+<style>
+  .ic-controles { display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin-bottom:1rem; }
+  .ic-controles label { font-size:12px; font-weight:600; color:var(--gris-3); }
+  .ic-controles select, .ic-controles input {
+    padding:7px 12px; border:1.5px solid var(--gris-1); border-radius:var(--r);
+    font-family:'Montserrat',sans-serif; font-size:12px; color:var(--azul-oscuro); outline:none; background:#fff;
+  }
+  .ic-aviso { background:var(--amarillo-l); border:1px solid #F3D9A0; color:#7D5A0B; border-radius:var(--r); padding:.6rem .9rem; font-size:12px; margin-bottom:1rem; }
+  .ic-aviso.error { background:var(--rojo-l); border-color:#F1B7B0; color:#922B21; }
+  .ic-nota { font-size:11px; color:var(--gris-3); line-height:1.5; }
+  .ic-tabla-wrap { overflow-x:auto; }
+  .ic-tabla-wrap table { min-width:1080px; }
+  tr.ic-fila { cursor:pointer; }
+  tr.ic-fila:focus-visible { outline:2px solid var(--azul-claro); outline-offset:-2px; }
+  tr.ic-fila.sel { background:#EAF4FC; }
+  .ic-cod { font-weight:700; font-size:12px; color:var(--azul-oscuro); }
+  .ic-sub { font-size:10px; color:var(--gris-3); }
+  tr.ic-fila .badge { white-space:nowrap; }
+  tr.ic-fila td:first-child .ic-sub { white-space:nowrap; }
+  .ic-pos { color:#922B21; font-weight:700; }
+  .ic-neg { color:#1A7A4A; font-weight:700; }
+  .ic-detalle { background:var(--blanco); border:1px solid var(--gris-1); border-radius:var(--r-lg); padding:1rem 1.25rem; margin:1.25rem 0; }
+  .ic-detalle-cab { display:flex; justify-content:space-between; align-items:flex-start; gap:1rem; flex-wrap:wrap; margin-bottom:.75rem; }
+  .ic-detalle h3 { font-size:14px; color:var(--azul-oscuro); margin:0; }
+  .ic-grid { display:grid; grid-template-columns:minmax(0,2fr) minmax(0,1fr); gap:1.25rem; }
+  .ic-chart-box { position:relative; height:340px; }
+  .ic-causas { list-style:none; margin:0; padding:0; font-size:12px; }
+  .ic-causas li { margin-bottom:.6rem; }
+  .ic-barra { height:6px; background:var(--gris-1); border-radius:99px; overflow:hidden; margin-top:3px; }
+  .ic-barra > span { display:block; height:100%; background:var(--naranja); }
+  .ic-motivos { margin:.5rem 0 0; padding-left:1.1rem; font-size:12px; color:var(--azul-oscuro); }
+  @media (max-width: 900px) { .ic-grid { grid-template-columns:1fr; } }
+</style>
+</head>
+<body>
+<div class="layout">
+  <div id="sidebar-mount"></div>
+  <main class="main">
+
+    <div class="topbar">
+      <div class="topbar-brand">
+        <img class="topbar-logo" src="../Icono_EQ.png" alt="EQ">
+        <div class="topbar-left">
+          <div class="topbar-title">Inteligencia de costos</div>
+          <div class="topbar-sub">Curvas por edad, alertas de desvío y pronóstico a la cosecha · LUKMAR S.A.</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn" id="btn-actualizar" type="button">
+          <svg viewBox="0 0 16 16" fill="none" stroke="currentColor" stroke-width="1.5"><path d="M2 8a6 6 0 1 1 2 4.5"/><path d="M2 4v4h4"/></svg>
+          Actualizar
+        </button>
+      </div>
+    </div>
+
+    <div class="content">
+
+      <div id="estado" class="ic-aviso" role="status" style="display:none"></div>
+
+      <div class="ic-controles">
+        <label for="sel-h">Pronóstico a los</label>
+        <select id="sel-h">
+          <option value="30">30 días</option><option value="35">35 días</option>
+          <option value="40" selected>40 días</option><option value="45">45 días</option>
+          <option value="50">50 días</option><option value="55">55 días</option>
+        </select>
+        <label for="filtro-nivel">Mostrar</label>
+        <select id="filtro-nivel">
+          <option value="">Todos los ciclos</option>
+          <option value="alto">Alerta alta</option>
+          <option value="atencion">En atención</option>
+          <option value="bajo">Costo bajo (revisar)</option>
+          <option value="normal">Normales</option>
+          <option value="resiembra">Con resiembra</option>
+        </select>
+        <input id="filtro-texto" type="search" placeholder="Buscar piscina o ciclo" aria-label="Buscar piscina o ciclo">
+      </div>
+
+      <div class="kpi-grid" id="kpis"></div>
+
+      <div class="tabla-card">
+        <div class="tabla-header">
+          <div>
+            <div class="tabla-title">Ciclos de engorde en curso</div>
+            <div class="tabla-sub" id="tabla-sub">Cada ciclo se compara con otros ciclos de la misma edad (días de cultivo). Clic en una fila para ver su curva.</div>
+          </div>
+        </div>
+        <div class="ic-tabla-wrap">
+          <table>
+            <thead>
+              <tr>
+                <th scope="col">Ciclo</th>
+                <th scope="col" class="right">Edad</th>
+                <th scope="col" class="right">Has</th>
+                <th scope="col" class="right">Costo $/ha</th>
+                <th scope="col" class="right">Operativo vs típico</th>
+                <th scope="col">Nivel</th>
+                <th scope="col">Causa principal</th>
+                <th scope="col" class="right">Ritmo 7 d</th>
+                <th scope="col" class="right">Alimento vs típico</th>
+                <th scope="col" class="right">FCR actual</th>
+                <th scope="col" class="right" id="th-proy">Pronóstico</th>
+              </tr>
+            </thead>
+            <tbody id="tabla-body"><tr><td colspan="11" class="ic-nota" style="padding:1.25rem">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="ic-detalle" id="detalle" style="display:none">
+        <div class="ic-detalle-cab">
+          <div>
+            <h3 id="detalle-titulo"></h3>
+            <div class="ic-nota" id="detalle-sub"></div>
+          </div>
+          <div>
+            <label for="chart-modo" class="ic-nota">Ver:&nbsp;</label>
+            <select id="chart-modo" style="padding:6px 10px;border:1.5px solid var(--gris-1);border-radius:var(--r);font-family:'Montserrat',sans-serif;font-size:12px">
+              <option value="costo">Costo acumulado ($/ha)</option>
+              <option value="alim">Alimento acumulado (lb/ha)</option>
+            </select>
+          </div>
+        </div>
+        <div class="ic-grid">
+          <div class="ic-chart-box"><canvas id="chart-detalle" aria-label="Curva del ciclo frente a la referencia" role="img"></canvas></div>
+          <div>
+            <div class="kpi-label">Por qué</div>
+            <ul class="ic-motivos" id="detalle-motivos"></ul>
+            <div class="kpi-label" style="margin-top:1rem">Dónde se gasta de más ($/ha vs típico)</div>
+            <ul class="ic-causas" id="detalle-causas"></ul>
+            <p class="ic-nota" style="margin-top:1rem">La larva y la siembra se decidieron el día 0, por eso se muestran aparte y no cuentan como gasto operativo.</p>
+          </div>
+        </div>
+      </div>
+
+      <div class="tabla-card" style="margin-top:1.25rem">
+        <div class="tabla-header">
+          <div>
+            <div class="tabla-title">¿Qué tan confiable es el pronóstico?</div>
+            <div class="tabla-sub">Se probó contra ciclos ya terminados: para cada uno se pronosticó su costo usando solo los demás, y se comparó con lo que costó de verdad.</div>
+          </div>
+        </div>
+        <div class="ic-tabla-wrap">
+          <table style="min-width:640px">
+            <thead>
+              <tr>
+                <th scope="col">Pronóstico</th>
+                <th scope="col" class="right">Ciclos probados</th>
+                <th scope="col" class="right">Error típico</th>
+                <th scope="col" class="right">Si solo se sigue el ritmo reciente</th>
+                <th scope="col" class="right">El rango cubre el costo real</th>
+              </tr>
+            </thead>
+            <tbody id="backtest-body"><tr><td colspan="5" class="ic-nota" style="padding:1rem">Cargando…</td></tr></tbody>
+          </table>
+        </div>
+        <div class="ic-nota" style="padding:.75rem 1.25rem 1rem">
+          El pronóstico es el costo de hoy más lo que costaron, en promedio, los días que faltan en ciclos comparables (rango: del 10 % al 90 %).
+          El rango acierta unas 3 de cada 4 veces, no siempre. Cuando faltan 10 días o menos, seguir el ritmo reciente acierta igual de bien; con 20 días o más por delante, este método es claramente mejor.
+          Los ciclos con resiembra no se pronostican. El FCR actual usa el alimento del propio engorde (no incluye el de la precría) y la misma biomasa confiable del resumen general; sin muestreo vigente aparece «—».
+        </div>
+      </div>
+
+    </div>
+  </main>
+</div>
+
+<script src="../js/vendor/supabase.min.js"></script>
+<script src="../js/vendor/chart.umd.js"></script>
+<script src="../js/config.js"></script>
+<script src="../js/shared.js"></script>
+<script src="../js/estado-servicio.js"></script>
+<script src="../js/inteligencia-costos.js"></script>
+<script src="../js/biomasa.js"></script>
+<script>
+const _sb = getSupabaseClient();
+let _datos = null, _filas = [], _bt = [], _gramaje = {}, _chart = null, _selId = null, _selCurva = null;
+
+const NIVEL = {
+  alto:           { txt: 'Alerta alta',    cls: 'badge-rojo' },
+  atencion:       { txt: 'En atención',    cls: 'badge-amarillo' },
+  bajo:           { txt: 'Costo bajo',     cls: 'badge-azul' },
+  normal:         { txt: 'Normal',         cls: 'badge-verde' },
+  resiembra:      { txt: 'Resiembra',      cls: 'badge-gris' },
+  sin_referencia: { txt: 'Sin referencia', cls: 'badge-gris' }
+};
+const BANDA_BAJA = '__banda_baja';   // lower edge of the typical band: drawn, but kept out of the legend and tooltip
+const $ = id => document.getElementById(id);
+const esc = s => String(s == null ? '' : s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const IC = InteligenciaCostos;
+
+(async () => {
+  if (!await verificarSesion(_sb)) return;
+  renderSidebar('inteligencia');
+  $('btn-actualizar').addEventListener('click', cargar);
+  $('sel-h').addEventListener('change', cargar);
+  $('filtro-nivel').addEventListener('change', pintarTabla);
+  $('filtro-texto').addEventListener('input', pintarTabla);
+  $('chart-modo').addEventListener('change', () => { if (_selId) pintarGrafico(); });
+  await cargar();
+})();
+
+function aviso(msg, error) {
+  const e = $('estado');
+  if (!msg) { e.style.display = 'none'; return; }
+  e.textContent = msg; e.className = 'ic-aviso' + (error ? ' error' : ''); e.style.display = 'block';
+}
+
+async function cargar() {
+  const h = Number($('sel-h').value) || 40;
+  aviso('Cargando…');
+  try {
+    const emp = sessionStorage.getItem('dcp_empresa');
+    const [r1, r2, r3] = await Promise.all([
+      _sb.rpc('inteligencia_costos', { p_edad_objetivo: h }),
+      _sb.rpc('inteligencia_backtest'),
+      _sb.from('gramaje_muestreo').select('piscina_codigo, sobrevivencia, peso_gramos, cantidad_larvas, fecha_muestreo').eq('empresa_id', emp)
+    ]);
+    if (r1.error) throw r1.error;
+    _datos = r1.data;
+    _bt = r2.error ? [] : (r2.data || []);
+    _gramaje = {};
+    (r3.data || []).forEach(g => { _gramaje[g.piscina_codigo] = { sobrev: g.sobrevivencia, peso: g.peso_gramos, larvas: g.cantidad_larvas, fmuestreo: g.fecha_muestreo }; });
+    _filas = IC.analizar(_datos);
+    aviso(null);
+    pintarKPIs(); pintarTabla(); pintarBacktest();
+    $('th-proy').textContent = 'Pronóstico a los ' + _datos.edad_objetivo + ' d';
+    if (_selId && !_filas.some(f => f.ciclo.id === _selId)) { _selId = null; $('detalle').style.display = 'none'; }
+    else if (_selId) seleccionar(_selId, true);
+  } catch (err) {
+    const falta = err && (err.code === 'PGRST202' || /Could not find the function|does not exist/i.test(err.message || ''));
+    aviso(falta ? 'El análisis de costos todavía no está instalado en la base de datos. Avise al administrador.' : mensajeErrorServicio(err), true);
+    $('tabla-body').innerHTML = '<tr><td colspan="11" class="ic-nota" style="padding:1.25rem">Sin datos para mostrar.</td></tr>';
+    $('kpis').innerHTML = '';
+  }
+}
+
+function fechaLarga(iso) {
+  const m = /^(\d{4})-(\d{2})-(\d{2})/.exec(iso || '');
+  if (!m) return '—';
+  const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic'];
+  return +m[3] + ' ' + meses[+m[2] - 1] + ' ' + m[1];
+}
+
+function pintarKPIs() {
+  const r = IC.resumir(_filas);
+  const comparables = r.total - r.resiembra - r.sin_referencia;
+  $('kpis').innerHTML =
+    kpi('c-rojo', 'Alertas altas', r.alto, 'de ' + r.total + ' ciclos en curso · datos al ' + fechaLarga(_datos.fecha)) +
+    kpi('c-amarillo', 'En atención', r.atencion, r.bajo + ' con costo bajo para revisar') +
+    kpi('c-naranja', 'Sobrecosto operativo', IC.usd(r.sobrecostoUsd), 'alto + atención, frente a lo típico a su edad') +
+    kpi('c-azul', 'Pronóstico a los ' + _datos.edad_objetivo + ' d', IC.usd(r.proyeccion.p50),
+        r.proyeccion.n ? 'rango ' + IC.usd(r.proyeccion.p10) + ' – ' + IC.usd(r.proyeccion.p90) + ' · ' + r.proyeccion.n + ' ciclos' : 'sin ciclos pronosticables');
+  $('tabla-sub').textContent = 'Cada ciclo se compara con otros ciclos de la misma edad (' + comparables + ' de ' + r.total + ' son comparables). Clic en una fila para ver su curva.';
+}
+function kpi(cls, label, val, sub) {
+  return '<div class="kpi-card ' + cls + '"><div class="kpi-label">' + esc(label) + '</div><div class="kpi-val">' + esc(val) + '</div><div class="kpi-sub">' + esc(sub) + '</div></div>';
+}
+
+function fcrDe(c) {
+  const r = { piscinas: { codigo: c.pis }, corridas: { fecha_siembra: c.fsiembra, codigo_corrida: c.cod }, fecha_reporte: _datos.fecha, edad_dias: c.edad };
+  if (!Biomasa.lbValido(r, _gramaje)) return null;
+  const bio = Biomasa.biomasaCalc(r, _gramaje);
+  return bio > 0 ? IC.fcrEnCurso(c, bio) : null;
+}
+
+function pintarTabla() {
+  const nivel = $('filtro-nivel').value, q = $('filtro-texto').value.trim().toLowerCase();
+  const filas = _filas.filter(f => (!nivel || f.veredicto.nivel === nivel) &&
+    (!q || (f.ciclo.cod + ' ' + f.ciclo.pis).toLowerCase().includes(q)));
+  if (!filas.length) { $('tabla-body').innerHTML = '<tr><td colspan="11" class="ic-nota" style="padding:1.25rem">Ningún ciclo coincide con el filtro.</td></tr>'; return; }
+  $('tabla-body').innerHTML = filas.map(f => {
+    const c = f.ciclo, v = f.veredicto, n = NIVEL[v.nivel];
+    const dev = v.opDesvioPct;
+    const devHtml = dev === null ? '—' : '<span class="' + (dev > 5 ? 'ic-pos' : (dev < -5 ? 'ic-neg' : '')) + '">' + IC.pctTxt(dev, true) + '</span>' +
+      (v.percentil !== null ? '<div class="ic-sub">percentil ' + v.percentil + '</div>' : '');
+    const causa = v.drivers.length ? esc(v.drivers[0].grupo) + '<div class="ic-sub">+' + IC.usd(v.drivers[0].usdHa) + '/ha</div>' : '—';
+    const ac = v.aceleracion ? '<span class="' + (v.aceleracion.alerta ? 'ic-pos' : '') + '">' + IC.usd(v.aceleracion.usdHaDia) + '/ha/d</span><div class="ic-sub">típico ' + IC.usd(v.aceleracion.ref) + '</div>' : '—';
+    const al = v.alimento ? '<span class="' + (v.alimento.nivel === 'alto' ? 'ic-pos' : (v.alimento.nivel === 'bajo' ? 'ic-neg' : '')) + '">' + IC.pctTxt((v.alimento.ratio - 1) * 100, true) + '</span><div class="ic-sub">' + Math.round(v.alimento.lbHa).toLocaleString('en-US') + ' lb/ha</div>' : '—';
+    const fcr = fcrDe(c);
+    const fcrHtml = fcr === null ? '<span title="Sin muestreo vigente o sobrevivencia sin actualizar">—</span>' : fcr.toFixed(2).replace('.', ',');
+    const p = f.proyeccion;
+    const proy = p && p.total ? '<strong>' + IC.usd(p.total.p50) + '</strong><div class="ic-sub">' + IC.usd(p.total.p10) + ' – ' + IC.usd(p.total.p90) + '</div>' : '<span class="ic-sub">' + (c.resiembra ? 'no aplica' : (c.edad >= _datos.edad_objetivo ? 'ya alcanzó la edad' : 'sin referencia')) + '</span>';
+    return '<tr class="ic-fila' + (c.id === _selId ? ' sel' : '') + '" tabindex="0" data-id="' + esc(c.id) + '">' +
+      '<td><div class="ic-cod">' + esc(c.pis) + '</div><div class="ic-sub">' + esc(c.cod) + '</div></td>' +
+      '<td class="right">' + c.edad + ' d</td>' +
+      '<td class="right">' + Number(c.has).toFixed(1) + '</td>' +
+      '<td class="right">' + IC.usd(c.x) + '</td>' +
+      '<td class="right">' + devHtml + '</td>' +
+      '<td><span class="badge ' + n.cls + '"><span class="badge-dot"></span>' + n.txt + '</span></td>' +
+      '<td>' + causa + '</td>' +
+      '<td class="right">' + ac + '</td>' +
+      '<td class="right">' + al + '</td>' +
+      '<td class="right">' + fcrHtml + '</td>' +
+      '<td class="right">' + proy + '</td></tr>';
+  }).join('');
+  document.querySelectorAll('tr.ic-fila').forEach(tr => {
+    tr.addEventListener('click', () => seleccionar(tr.dataset.id));
+    tr.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); seleccionar(tr.dataset.id); } });
+  });
+}
+
+async function seleccionar(id, mantener) {
+  const f = _filas.find(x => x.ciclo.id === id);
+  if (!f) return;
+  _selId = id;
+  document.querySelectorAll('tr.ic-fila').forEach(tr => tr.classList.toggle('sel', tr.dataset.id === id));
+  const c = f.ciclo, v = f.veredicto, n = NIVEL[v.nivel];
+  $('detalle').style.display = 'block';
+  $('detalle-titulo').textContent = 'Piscina ' + c.pis + ' · ' + c.cod + ' · ' + n.txt;
+  $('detalle-sub').textContent = c.edad + ' días de cultivo · ' + Number(c.has).toFixed(1) + ' ha · referencia: ' + v.refN + ' ciclos de la misma edad';
+  $('detalle-motivos').innerHTML = (v.motivos.length ? v.motivos : ['Dentro de lo típico para su edad.']).map(m => '<li>' + esc(m) + '</li>').join('');
+  const mx = v.drivers.length ? v.drivers[0].usdHa : 1;
+  let causas = v.drivers.map(d => '<li><div style="display:flex;justify-content:space-between"><span>' + esc(d.grupo) + '</span><strong>+' + IC.usd(d.usdHa) + '</strong></div><div class="ic-barra"><span style="width:' + Math.max(4, Math.round(d.usdHa / mx * 100)) + '%"></span></div></li>').join('');
+  if (v.larvaDesvioUsdHa !== null && Math.abs(v.larvaDesvioUsdHa) >= 50) causas += '<li><div style="display:flex;justify-content:space-between"><span>Larva / siembra (aparte)</span><strong>' + (v.larvaDesvioUsdHa > 0 ? '+' : '-') + IC.usd(Math.abs(v.larvaDesvioUsdHa)) + '</strong></div></li>';
+  $('detalle-causas').innerHTML = causas || '<li class="ic-nota">Ningún grupo por encima de lo típico.</li>';
+  _selCurva = null;
+  try {
+    const { data, error } = await _sb.from('ciclo_curva_edad').select('edad, costo_ha, alim_lbs_ha').eq('corrida_id', id).order('edad');
+    if (error) throw error;
+    _selCurva = data || [];
+  } catch (err) { aviso('No se pudo cargar la curva del ciclo: ' + mensajeErrorServicio(err), true); }
+  pintarGrafico();
+  if (!mantener) $('detalle').scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+}
+
+function pintarGrafico() {
+  const f = _filas.find(x => x.ciclo.id === _selId);
+  if (!f || !_selCurva) return;
+  const modo = $('chart-modo').value, c = f.ciclo, h = _datos.edad_objetivo;
+  const pts = (arr) => arr.map(p => ({ x: p.x, y: p.y }));
+  const ref = _datos.curvas;
+  let bandaAlta, bandaBaja, mediana, propio;
+  if (modo === 'alim') {
+    bandaAlta = ref.map(r => ({ x: r.e, y: r.alim[2] })); bandaBaja = ref.map(r => ({ x: r.e, y: r.alim[0] })); mediana = ref.map(r => ({ x: r.e, y: r.alim[1] }));
+    propio = _selCurva.filter(p => p.alim_lbs_ha !== null).map(p => ({ x: p.edad, y: Number(p.alim_lbs_ha) }));
+  } else {
+    bandaAlta = ref.map(r => ({ x: r.e, y: r.x[4] })); bandaBaja = ref.map(r => ({ x: r.e, y: r.x[0] })); mediana = ref.map(r => ({ x: r.e, y: r.x[2] }));
+    propio = _selCurva.map(p => ({ x: p.edad, y: Number(p.costo_ha) }));
+  }
+  const datasets = [
+    { label: modo === 'alim' ? 'Rango típico (la mitad central de los ciclos)' : 'Rango típico (el 80 % central de los ciclos)', data: bandaAlta, borderColor: 'rgba(122,143,166,.35)', backgroundColor: 'rgba(122,143,166,.15)', pointRadius: 0, borderWidth: 1, fill: '+1' },
+    { label: BANDA_BAJA, data: bandaBaja, borderColor: 'rgba(122,143,166,.35)', pointRadius: 0, borderWidth: 1, fill: false },
+    { label: 'Mediana de ciclos comparables', data: mediana, borderColor: '#7A8FA6', borderDash: [6, 4], pointRadius: 0, borderWidth: 2, fill: false },
+    { label: 'Este ciclo', data: propio, borderColor: '#1A3A6B', backgroundColor: '#1A3A6B', pointRadius: 0, borderWidth: 3, fill: false }
+  ];
+  const p = f.proyeccion;
+  if (modo !== 'alim' && p && propio.length) {
+    const ult = propio[propio.length - 1];
+    [['p10', 'Pronóstico (bajo)', 'rgba(244,121,32,.55)'], ['p50', 'Pronóstico (más probable)', '#F47920'], ['p90', 'Pronóstico (alto)', 'rgba(244,121,32,.55)']].forEach(([k, l, col]) => {
+      datasets.push({ label: l, data: [ult, { x: h, y: p.porHa[k] }], borderColor: col, borderDash: [2, 3], pointRadius: [0, 4], borderWidth: k === 'p50' ? 2.5 : 1.5, fill: false });
+    });
+  }
+  if (_chart) _chart.destroy();
+  _chart = new Chart($('chart-detalle'), {
+    type: 'line',
+    data: { datasets },
+    options: {
+      responsive: true, maintainAspectRatio: false, parsing: false, animation: false,
+      interaction: { mode: 'nearest', intersect: false, axis: 'x' },
+      scales: {
+        x: { type: 'linear', min: 1, max: Math.max(h + 2, c.edad + 2), title: { display: true, text: 'Edad (días de cultivo)' } },
+        y: { beginAtZero: true, title: { display: true, text: modo === 'alim' ? 'lb por hectárea' : '$ por hectárea' }, ticks: { callback: v => Number(v).toLocaleString('en-US') } }
+      },
+      plugins: { legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 10 }, filter: item => item.text !== BANDA_BAJA } },
+        tooltip: { filter: item => item.dataset.label !== BANDA_BAJA, callbacks: { label: ctx => ctx.dataset.label + ': ' + Math.round(ctx.parsed.y).toLocaleString('en-US') } } }
+    }
+  });
+}
+
+function pintarBacktest() {
+  if (!_bt.length) { $('backtest-body').innerHTML = '<tr><td colspan="5" class="ic-nota" style="padding:1rem">La prueba de confiabilidad no está disponible.</td></tr>'; return; }
+  $('backtest-body').innerHTML = _bt.map(b =>
+    '<tr><td>Desde los ' + b.a + ' d, costo a los ' + b.h + ' d</td><td class="right">' + b.n + '</td>' +
+    '<td class="right"><strong>' + String(b.error_pct).replace('.', ',') + ' %</strong></td>' +
+    '<td class="right">' + String(b.error_lineal_pct).replace('.', ',') + ' %</td>' +
+    '<td class="right">' + b.cobertura_pct + ' %' + (b.n < 20 ? ' <span class="ic-sub">(pocos ciclos)</span>' : '') + '</td></tr>').join('');
+}
+</script>
+</body>
+</html>

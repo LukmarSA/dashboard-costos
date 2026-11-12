@@ -61,6 +61,7 @@ function renderSidebar(paginaActiva) {
   const items = [
     { seccion: 'Principal' },
     { id: 'dashboard', href: 'dashboard.html', icon: iconDashboard, label: 'Resumen general' },
+    { id: 'inteligencia', href: 'inteligencia.html', icon: iconTrend, label: 'Inteligencia de costos' },
     ...(esContador ? [
       { seccion: 'Carga de datos' },
       { id: 'importar_siembra',     href: 'importar_siembra.html',     icon: iconSprout,  label: 'Importar siembra' },
@@ -151,7 +152,8 @@ function mostrarProximamente() {
 // ---- ICONOS SVG (estilo Lucide: 24x24, stroke 2, redondeado) ----
 const _sv = 'viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
 const iconDashboard = `<svg ${_sv}><rect width="7" height="9" x="3" y="3" rx="1"/><rect width="7" height="5" x="14" y="3" rx="1"/><rect width="7" height="9" x="14" y="12" rx="1"/><rect width="7" height="5" x="3" y="16" rx="1"/></svg>`;
-const iconSprout    = `<svg ${_sv}><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg>`;
+const iconTrend     = `<svg ${_sv}><polyline points="22 7 13.5 15.5 8.5 10.5 2 17"/><polyline points="16 7 22 7 22 13"/></svg>`;
+const iconSprout    =`<svg ${_sv}><path d="M7 20h10"/><path d="M10 20c5.5-2.5.8-6.4 3-10"/><path d="M9.5 9.4c1.1.8 1.8 2.2 2.3 3.7-2 .4-3.5.4-4.8-.3-1.2-.6-2.3-1.9-3-4.2 2.8-.5 4.4 0 5.5.8z"/><path d="M14.1 6a7 7 0 0 0-1.1 4c1.9-.1 3.3-.6 4.3-1.4 1-1 1.6-2.3 1.7-4.6-2.7.1-4 1-4.9 2z"/></svg>`;
 const iconCoins     = `<svg ${_sv}><circle cx="8" cy="8" r="6"/><path d="M18.09 10.37A6 6 0 1 1 10.34 18"/><path d="M7 6h1v4"/><path d="m16.71 13.88.7.71-2.82 2.82"/></svg>`;
 const iconHistory   = `<svg ${_sv}><path d="M3 12a9 9 0 1 0 9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M12 7v5l4 2"/></svg>`;
 const iconPie       = `<svg ${_sv}><path d="M21.21 15.89A10 10 0 1 1 8 2.83"/><path d="M22 12A10 10 0 0 0 12 2v10z"/></svg>`;
