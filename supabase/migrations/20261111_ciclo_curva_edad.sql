@@ -11,8 +11,12 @@
 --
 -- Rebuilt completely by ciclo_curva_edad_recalcular() (about 12k source rows, a couple of seconds); the daily job calls it.
 --
--- STATUS: NOT YET APPLIED to project xupjkihkbvqtzmtrkfff (the apply_migration approval prompt timed out on 2026-11-11).
--- Apply after 20261111_ciclo_costo_dia.sql, then run:  select public.ciclo_curva_edad_recalcular();
+-- Applied to project xupjkihkbvqtzmtrkfff on 2026-11-12 (after 20261111_ciclo_costo_dia.sql), then
+--   select public.ciclo_curva_edad_recalcular();   -> 13,491 rows, 648 cycles (checksum f2082ab5a4adcd63151fc83fc48349fe).
+-- What is LIVE is the first version of ciclo_curva_edad_recalcular(), which takes 42 s. The version in this file is the
+-- optimised one (observations go to an indexed temp table before interpolation); its apply_migration approval timed out
+-- on 2026-11-12 and is PENDING. After applying it, the rebuilt table must give the same row count and checksum:
+--   select count(*), md5(string_agg(c::text, '|' order by c.corrida_id, c.edad)) from public.ciclo_curva_edad c;
 
 create table if not exists public.ciclo_curva_edad (
   corrida_id      uuid          not null references public.corridas(id) on delete cascade,
@@ -65,6 +69,8 @@ begin
   perform set_config('statement_timeout', '100s', true);
   delete from public.ciclo_curva_edad;
 
+  drop table if exists pg_temp._p;
+  create temp table _p on commit drop as
   with sd as (   -- stocked reports, with the date of the last age reset (re-stocking) of each cycle
     select s.corrida_id, s.fecha_reporte, s.edad_dias, s.has, s.balanceado_lbs,
            case when s.edad_dias < lag(s.edad_dias) over (partition by s.corrida_id order by s.fecha_reporte) - 3
@@ -72,21 +78,22 @@ begin
     from public.siembra_diaria s
     where s.corrida_id is not null and s.sembrada and s.edad_dias > 0 and s.has > 0
   ),
-  rs as (select corrida_id, max(f_reset) as f_reset from sd group by 1),
-  p as (   -- one observation per cycle and age (the latest report date), last phase only
-    select distinct on (t.corrida_id, sd.edad_dias)
-           t.corrida_id, t.empresa_id, t.fecha, sd.edad_dias as edad, sd.has,
-           t.costo_acum / sd.has as costo_ha,
-           t.c_balanceado / sd.has as bal, t.c_larva / sd.has as lar, t.c_mano_obra / sd.has as mo,
-           t.c_combustible / sd.has as comb, t.c_quimicos / sd.has as quim, t.c_otros / sd.has as otros,
-           sd.balanceado_lbs / sd.has as alim, (rs.f_reset is not null) as resiembra
-    from public.ciclo_costo_dia t
-    join sd on sd.corrida_id = t.corrida_id and sd.fecha_reporte = t.fecha
-    join rs on rs.corrida_id = t.corrida_id
-    where rs.f_reset is null or t.fecha >= rs.f_reset
-    order by t.corrida_id, sd.edad_dias, t.fecha desc
-  ),
-  rng as (select corrida_id, min(edad) as e_min, max(edad) as e_max from p group by 1),
+  rs as (select corrida_id, max(f_reset) as f_reset from sd group by 1)
+  select distinct on (t.corrida_id, sd.edad_dias)   -- one observation per cycle and age (latest report date), last phase only
+         t.corrida_id, t.empresa_id, t.fecha, sd.edad_dias as edad, sd.has,
+         t.costo_acum / sd.has as costo_ha,
+         t.c_balanceado / sd.has as bal, t.c_larva / sd.has as lar, t.c_mano_obra / sd.has as mo,
+         t.c_combustible / sd.has as comb, t.c_quimicos / sd.has as quim, t.c_otros / sd.has as otros,
+         sd.balanceado_lbs / sd.has as alim, (rs.f_reset is not null) as resiembra
+  from public.ciclo_costo_dia t
+  join sd on sd.corrida_id = t.corrida_id and sd.fecha_reporte = t.fecha
+  join rs on rs.corrida_id = t.corrida_id
+  where rs.f_reset is null or t.fecha >= rs.f_reset
+  order by t.corrida_id, sd.edad_dias, t.fecha desc;
+  create unique index on pg_temp._p (corrida_id, edad);
+  analyze pg_temp._p;
+
+  with rng as (select corrida_id, min(edad) as e_min, max(edad) as e_max from pg_temp._p group by 1),
   g as (select r.corrida_id, a from rng r, lateral generate_series(r.e_min, r.e_max) as a),
   j as (
     select g.corrida_id, g.a, lo.edad as e0, hi.edad as e1,
@@ -95,8 +102,8 @@ begin
            lo.comb k0, hi.comb k1, lo.quim q0, hi.quim q1, lo.otros o0, hi.otros o1, lo.alim f0, hi.alim f1,
            case when lo.edad = g.a then lo.fecha end as fecha_obs
     from g
-    cross join lateral (select * from p where p.corrida_id = g.corrida_id and p.edad <= g.a order by p.edad desc limit 1) lo
-    cross join lateral (select * from p where p.corrida_id = g.corrida_id and p.edad >= g.a order by p.edad asc limit 1) hi
+    cross join lateral (select * from pg_temp._p p where p.corrida_id = g.corrida_id and p.edad <= g.a order by p.edad desc limit 1) lo
+    cross join lateral (select * from pg_temp._p p where p.corrida_id = g.corrida_id and p.edad >= g.a order by p.edad asc limit 1) hi
   )
   insert into public.ciclo_curva_edad (corrida_id, edad, empresa_id, fecha, has, costo_ha, c_balanceado_ha, c_larva_ha,
                                        c_mano_obra_ha, c_combustible_ha, c_quimicos_ha, c_otros_ha, alim_lbs_ha, resiembra)
